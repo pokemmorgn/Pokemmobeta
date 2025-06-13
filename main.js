@@ -7,7 +7,6 @@ setupCanvas();
 const canvas = document.getElementById("gameCanvas");
 handleInput(canvas);
 
-// Initialisation et lancement du jeu
 authAndInit(player, () => {
   requestAnimationFrame(gameLoop);
 });
