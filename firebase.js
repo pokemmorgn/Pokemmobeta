@@ -29,31 +29,34 @@ export function authAndInit(player, callback) {
   signInAnonymously(auth).catch(console.error);
 
   onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      player.id = user.uid;
+  if (user) {
+    player.id = user.uid;
 
-      const userRef = ref(db, "users/" + player.id);
-      const snapshot = await get(userRef);
+    const userRef = ref(db, "users/" + player.id);
+    const snapshot = await get(userRef);
 
-      if (snapshot.exists() && snapshot.val().name) {
-        player.name = snapshot.val().name;
-        player.skin = snapshot.val().skin || "default";
-        player.gold = snapshot.val().gold || 0;
-      } else {
-        const input = prompt("Ton pseudo ?");
-        player.name = input?.trim() || "Anonyme";
+    if (snapshot.exists()) {
+      // L'utilisateur existe déjà, on charge ses données
+      const userData = snapshot.val();
+      player.name = userData.name;
+      player.skin = userData.skin || "default";
+      player.gold = userData.gold || 0;
+    } else {
+      // Nouvel utilisateur, on demande le pseudo
+      const input = prompt("Ton pseudo ?");
+      player.name = input?.trim() || "Anonyme";
 
-        await set(userRef, {
-          name: player.name,
-          skin: "default",
-          gold: 0
-        });
-      }
-
-      initFirebase(player);
-      if (callback) callback();
+      await set(userRef, {
+        name: player.name,
+        skin: "default",
+        gold: 0
+      });
     }
-  });
+
+    initFirebase(player);
+    if (callback) callback();
+  }
+});
 }
 
 // Enregistrement des positions en temps réel
