@@ -1,32 +1,34 @@
 class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
+        console.log("GameScene: constructeur appelé");
     }
 
     preload() {
-        // Ajoute ici le chargement de ton tileset et map plus tard
-        // Exemple: this.load.image('nature', 'assets/tileset_nature.png');
-        // Exemple: this.load.tilemapTiledJSON('map', 'assets/FirstVillage.tmj');
+        console.log("GameScene: preload");
     }
 
     create() {
-        // Affiche un carré "joueur"
-        this.player = this.add.rectangle(400, 300, 32, 32, 0xff0000);
-        this.physics.add.existing(this.player);
-        this.cameras.main.startFollow(this.player);
+        console.log("GameScene: create");
+        // Change la couleur de fond du canvas Phaser (rose flashy)
+        this.cameras.main.setBackgroundColor('#ff69b4');
 
-        this.cursors = this.input.keyboard.createCursorKeys();
+        // GROS texte bien visible au centre
+        this.add.text(400, 300, 'CANVAS OK', {
+            font: "bold 48px Arial",
+            fill: "#fff",
+            backgroundColor: "#222"
+        }).setOrigin(0.5);
+
+        // GROS carré bleu bien visible
+        this.add.rectangle(400, 450, 200, 200, 0x3498db).setOrigin(0.5);
     }
 
     update() {
-        const speed = 160;
-        const body = this.player.body;
-        body.setVelocity(0);
-
-        if (this.cursors.left.isDown) body.setVelocityX(-speed);
-        else if (this.cursors.right.isDown) body.setVelocityX(speed);
-        if (this.cursors.up.isDown) body.setVelocityY(-speed);
-        else if (this.cursors.down.isDown) body.setVelocityY(speed);
+        if (!this._updateLog) {
+            console.log("GameScene: update actif !");
+            this._updateLog = true;
+        }
     }
 }
 
@@ -34,7 +36,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: "#b9eaff",
+    backgroundColor: "#b9eaff", // Valeur par défaut, sera écrasée par setBackgroundColor
     parent: null,
     pixelArt: true,
     physics: {
@@ -47,4 +49,6 @@ const config = {
     scene: [GameScene]
 };
 
+console.log("Création du jeu Phaser...");
 new Phaser.Game(config);
+console.log("Phaser lancé !");
