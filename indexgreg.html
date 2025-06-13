@@ -296,6 +296,11 @@
 </head>
 <body>
   <div class="container">
+    <!-- Version Badge -->
+    <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
+      v2.1.0 - Advanced Debug
+    </div>
+    
     <div class="main-card">
       <h1>🌟 Connect Wallet</h1>
       <p class="subtitle">Connect your favorite SUI wallet to get started</p>
@@ -364,16 +369,40 @@
         detectors: ['phantom'],
         connectMethod: async (provider) => {
           try {
+            console.log('🔧 Attempting Phantom connection with provider:', provider);
+            console.log('🔧 Provider methods:', Object.getOwnPropertyNames(provider));
+            
+            // Méthode 1: Connection Solana standard (Phantom fonctionne comme ça)
             if (provider.connect) {
+              console.log('🔧 Trying standard connect()');
               const result = await provider.connect({ onlyIfTrusted: false });
-              return result.publicKey?.toString() || result.accounts?.[0] || 'Connected to Phantom';
+              console.log('🔧 Connect result:', result);
+              return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
             }
+            
+            // Méthode 2: Request method
             if (provider.request) {
-              const result = await provider.request({ method: 'connect' });
-              return result.accounts?.[0] || result.address || result;
+              console.log('🔧 Trying request method');
+              try {
+                const accounts = await provider.request({ method: 'connect' });
+                return accounts?.[0] || JSON.stringify(accounts);
+              } catch (reqError) {
+                console.log('🔧 Request failed, trying eth_requestAccounts');
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                return accounts?.[0] || JSON.stringify(accounts);
+              }
             }
-            throw new Error("No suitable connection method found");
+            
+            // Méthode 3: Enable method
+            if (provider.enable) {
+              console.log('🔧 Trying enable()');
+              const result = await provider.enable();
+              return result?.[0] || JSON.stringify(result);
+            }
+            
+            throw new Error(`No connection method worked. Available methods: ${Object.getOwnPropertyNames(provider).join(', ')}`);
           } catch (error) {
+            console.error('🔧 Phantom connection error:', error);
             throw new Error(`Phantom connection failed: ${error.message}`);
           }
         }
@@ -457,7 +486,24 @@
                   hasConnect: !!obj.connect,
                   hasEnable: !!obj.enable,
                   hasRequest: !!obj.request,
-                  methods: Object.getOwnPropertyNames(obj).slice(0, 10) // Premiers 10 pour éviter spam
+                  methods: Object.getOwnPropertyNames(obj).slice(0, 10), // Premiers 10 pour éviter spam
+                  // Debug plus poussé pour Phantom
+                  ...(key.toLowerCase().includes('phantom') ? {
+                    phantomDetails: {
+                      isPhantom: obj.isPhantom,
+                      sui: !!obj.sui,
+                      solana: !!obj.solana,
+                      ethereum: !!obj.ethereum,
+                      suiMethods: obj.sui ? Object.getOwnPropertyNames(obj.sui) : null,
+                      allKeys: Object.keys(obj)
+                    }
+                  } : {}),
+                  // Pour tous les objets, montrer leurs sous-propriétés
+                  subProperties: Object.keys(obj).filter(k => 
+                    k.toLowerCase().includes('sui') || 
+                    k.toLowerCase().includes('connect') ||
+                    k.toLowerCase().includes('wallet')
+                  )
                 };
               }
             }
@@ -466,8 +512,50 @@
           }
         }
         
+        // Chercher aussi dans les événements Wallet Standard
+        const checkWalletStandard = () => {
+          try {
+            // Écouter les événements wallet-standard
+            window.addEventListener('wallet-standard:register-wallet', (event) => {
+              console.log('🎯 WALLET STANDARD EVENT:', event.detail);
+            });
+            
+            // Déclencher la détection
+            window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', {
+              detail: { name: 'Wallet Connector' }
+            }));
+            
+            // Vérifier si des wallets sont déjà enregistrés
+            if (window.navigator && window.navigator.wallets) {
+              console.log('🎯 NAVIGATOR WALLETS:', window.navigator.wallets);
+            }
+            
+            return true;
+          } catch (e) {
+            console.log('❌ Wallet Standard not supported:', e);
+            return false;
+          }
+        };
+        
         console.log('🔍 ALL WINDOW OBJECTS:', allObjects);
         console.log('🎯 WALLET-LIKE OBJECTS:', walletLikeObjects);
+        console.log('📡 WALLET STANDARD CHECK:', checkWalletStandard());
+        
+        // Recherche spéciale pour les objets cachés
+        const hiddenWallets = {};
+        ['phantom', 'sui', 'slush', 'suiWallet', 'solana'].forEach(name => {
+          if (window[name]) {
+            hiddenWallets[name] = {
+              exists: true,
+              type: typeof window[name],
+              methods: Object.getOwnPropertyNames(window[name]),
+              connect: !!window[name].connect,
+              request: !!window[name].request
+            };
+          }
+        });
+        console.log('🔍 DIRECT WALLET CHECK:', hiddenWallets);
+        
         return walletLikeObjects;
       };
 
@@ -490,31 +578,32 @@
         }
 
         // Si pas trouvé avec les détecteurs standards, essayer la recherche dynamique
-        if (!isInstalled && config.id === 'slush') {
-          // Recherche spéciale pour Slush
+        if (!isInstalled) {
+          // Recherche générique par mots-clés
           for (const [key, obj] of Object.entries(walletLikeObjects)) {
-            if (key.toLowerCase().includes('sui') || 
-                key.toLowerCase().includes('slush') ||
-                (obj.methods && obj.methods.some(m => m.includes('sui') || m.includes('Sui')))) {
+            const keyLower = key.toLowerCase();
+            const configId = config.id.toLowerCase();
+            
+            if (keyLower.includes(configId) || 
+                (configId === 'slush' && (keyLower.includes('sui') || keyLower.includes('slush'))) ||
+                (configId === 'phantom' && keyLower.includes('phantom'))) {
+              
               provider = window[key];
               isInstalled = true;
               detectedVia = `${key} (dynamic detection)`;
-              console.log(`🎯 Found Slush via dynamic detection: ${key}`, window[key]);
+              console.log(`🎯 Found ${config.name} via dynamic detection: ${key}`, window[key]);
               break;
             }
           }
         }
 
-        // Recherche spéciale pour Phantom
+        // Recherche spéciale pour Phantom (peut être dans window.ethereum si multichain)
         if (!isInstalled && config.id === 'phantom') {
-          for (const [key, obj] of Object.entries(walletLikeObjects)) {
-            if (key.toLowerCase().includes('phantom')) {
-              provider = window[key];
-              isInstalled = true;
-              detectedVia = `${key} (dynamic detection)`;
-              console.log(`👻 Found Phantom via dynamic detection: ${key}`, window[key]);
-              break;
-            }
+          if (window.ethereum && window.ethereum.isPhantom) {
+            provider = window.ethereum;
+            isInstalled = true;
+            detectedVia = 'ethereum.isPhantom';
+            console.log('👻 Found Phantom via window.ethereum.isPhantom');
           }
         }
 
