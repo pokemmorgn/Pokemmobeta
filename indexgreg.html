@@ -84,12 +84,13 @@
     // Wallets SUI réels
     const suiWallets = [
       {
-        name: "SUI Wallet",
-        key: "sui",
-        provider: () => window.suiWallet,
+        name: "Slush Wallet (ex-Sui Wallet)",
+        key: "slush",
+        provider: () => window.suiWallet || window.slush,
         connect: async () => {
-          if (!window.suiWallet) throw new Error("SUI Wallet not found");
-          const result = await window.suiWallet.connect();
+          const provider = window.suiWallet || window.slush;
+          if (!provider) throw new Error("Slush Wallet not found");
+          const result = await provider.connect();
           return result.accounts?.[0] || result.address || result;
         }
       },
@@ -184,6 +185,7 @@
     // Debug: afficher les objets window disponibles
     console.log('Available wallet objects:', {
       suiWallet: !!window.suiWallet,
+      slush: !!window.slush,
       martian: !!window.martian,
       ethosWallet: !!window.ethosWallet,
       suiet: !!window.suiet,
