@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.0.5 - Phantom Only
+      v4.0.6 - Phantom Only
     </div>
     
     <div class="main-card">
@@ -176,18 +176,32 @@
           console.log('🔧 Provider structure:', {
             hasSui: !!provider.sui,
             suiMethods: provider.sui ? Object.getOwnPropertyNames(provider.sui) : 'No SUI',
-            hasConnect: !!provider.sui?.connect
+            hasConnect: !!provider.sui?.connect,
+            suiType: typeof provider.sui,
+            suiValue: provider.sui
           });
           
-          // UNIQUEMENT SUI - C'est ce qui marche !
-          if (provider.sui && provider.sui.connect) {
-            console.log('🔧 Using provider.sui.connect() - SUI ONLY');
-            const result = await provider.sui.connect();
-            console.log('🔧 SUI Connect result:', result);
-            return result.accounts?.[0] || result.address || JSON.stringify(result);
+          // Debug plus poussé pour SUI
+          if (provider.sui) {
+            console.log('🔧 SUI exists! Details:', {
+              sui: provider.sui,
+              suiConnect: provider.sui.connect,
+              suiConnectType: typeof provider.sui.connect,
+              allSuiProps: Object.getOwnPropertyNames(provider.sui),
+              allSuiKeys: Object.keys(provider.sui)
+            });
+            
+            if (provider.sui.connect) {
+              console.log('🔧 Using provider.sui.connect() - SUI ONLY');
+              const result = await provider.sui.connect();
+              console.log('🔧 SUI Connect result:', result);
+              return result.accounts?.[0] || result.address || JSON.stringify(result);
+            } else {
+              throw new Error(`provider.sui exists but has no connect method! SUI methods: ${Object.getOwnPropertyNames(provider.sui).join(', ')}`);
+            }
           }
           
-          throw new Error(`SUI provider not found! Available: ${Object.getOwnPropertyNames(provider).join(', ')}`);
+          throw new Error(`provider.sui not found! Available providers: ${Object.getOwnPropertyNames(provider).join(', ')}`);
         } catch (error) {
           console.error('🔧 Phantom SUI connection error:', error);
           throw new Error(`Phantom SUI connection failed: ${error.message}`);
