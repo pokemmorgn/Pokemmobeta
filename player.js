@@ -1,34 +1,36 @@
-import { targetX, targetY } from './input.js';
+import { targetX, targetY, keys, cancelTarget } from './input.js';
 
 export const player = {
-  id: null,
+  id: localStorage.getItem("playerId") || crypto.randomUUID(),
   x: 300,
   y: 300,
   size: 30,
   color: 'red',
-  name: "Joueur",
+  name: prompt("Ton pseudo ?") || "Joueur",
   skin: "default",
   gold: 0,
   speed: 2
 };
 
+localStorage.setItem("playerId", player.id);
+
 export function updatePlayer() {
   const speed = player.speed;
   let usedKeyboard = false;
 
-  if (window.keys['arrowup'] || window.keys['w']) {
+  if (keys['arrowup'] || keys['w']) {
     player.y -= speed;
     usedKeyboard = true;
   }
-  if (window.keys['arrowdown'] || window.keys['s']) {
+  if (keys['arrowdown'] || keys['s']) {
     player.y += speed;
     usedKeyboard = true;
   }
-  if (window.keys['arrowleft'] || window.keys['a']) {
+  if (keys['arrowleft'] || keys['a']) {
     player.x -= speed;
     usedKeyboard = true;
   }
-  if (window.keys['arrowright'] || window.keys['d']) {
+  if (keys['arrowright'] || keys['d']) {
     player.x += speed;
     usedKeyboard = true;
   }
@@ -44,9 +46,4 @@ export function updatePlayer() {
       player.y += (dy / dist) * speed;
     }
   }
-}
-
-function cancelTarget() {
-  window.targetX = null;
-  window.targetY = null;
 }
