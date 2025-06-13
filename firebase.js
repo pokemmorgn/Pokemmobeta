@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
 import {
-  getDatabase, ref, set, get, onValue, remove, onDisconnect
+  getDatabase, ref, set, get, onValue, onDisconnect
 } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged
@@ -24,39 +24,53 @@ const auth = getAuth(app);
 let playerRef;
 export let playersData = {};
 
-// Auth + Init (appelé depuis main.js)
 export function authAndInit(player, callback) {
-  signInAnonymously(auth).catch(console.error);
+  // Essaie de récupérer l’uid et le pseudo sauvegardés
+  const savedUid = localStorage.getItem('uid');
+  const savedName = localStorage.getItem('name');
 
-  onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    player.id = user.uid;
-
-    const userRef = ref(db, "users/" + player.id);
-    const snapshot = await get(userRef);
-
-    if (snapshot.exists()) {
-      // L'utilisateur existe déjà, on charge ses données
-      const userData = snapshot.val();
-      player.name = userData.name;
-      player.skin = userData.skin || "default";
-      player.gold = userData.gold || 0;
-    } else {
-      // Nouvel utilisateur, on demande le pseudo
-      const input = prompt("Ton pseudo ?");
-      player.name = input?.trim() || "Anonyme";
-
-      await set(userRef, {
-        name: player.name,
-        skin: "default",
-        gold: 0
-      });
-    }
-
+  if (savedUid && savedName) {
+    // On a déjà un utilisateur sauvegardé, on l’utilise
+    player.id = savedUid;
+    player.name = savedName;
     initFirebase(player);
     if (callback) callback();
+  } else {
+    // Sinon, on s’authentifie anonymement
+    signInAnonymously(auth).catch(console.error);
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        player.id = user.uid;
+
+        const userRef = ref(db, "users/" + player.id);
+        const snapshot = await get(userRef);
+
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          player.name = userData.name;
+          player.skin = userData.skin || "default";
+          player.gold = userData.gold || 0;
+        } else {
+          const input = prompt("Ton pseudo ?");
+          player.name = input?.trim() || "Anonyme";
+
+          await set(userRef, {
+            name: player.name,
+            skin: "default",
+            gold: 0
+          });
+        }
+
+        // Sauvegarde dans localStorage
+        localStorage.setItem('uid', player.id);
+        localStorage.setItem('name', player.name);
+
+        initFirebase(player);
+        if (callback) callback();
+      }
+    });
   }
-});
 }
 
 // Enregistrement des positions en temps réel
