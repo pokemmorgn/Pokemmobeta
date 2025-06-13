@@ -317,6 +317,11 @@
     <div class="wallet-card">
       <div class="network-badge">SUI Network</div>
       
+      <!-- Version Badge -->
+      <div style="position: absolute; top: 10px; left: 10px; background: rgba(108, 92, 231, 0.2); border: 1px solid rgba(108, 92, 231, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a29bfe; z-index: 9999;">
+        v4.0.0 - Debug Mode
+      </div>
+      
       <div class="phantom-logo">👻</div>
       <h1>Phantom Wallet</h1>
       <p class="subtitle">Connect your Phantom wallet to access SUI blockchain features</p>
@@ -417,80 +422,195 @@
       }
     }
 
+    // Debug: Analyser les objets Phantom disponibles
+    function debugPhantomAPIs() {
+      console.log('🔍 === PHANTOM DEBUG ANALYSIS ===');
+      
+      if (window.phantom) {
+        console.log('✅ window.phantom exists:', window.phantom);
+        console.log('🔍 phantom keys:', Object.keys(window.phantom));
+        
+        // Analyser chaque sous-objet
+        Object.keys(window.phantom).forEach(key => {
+          const obj = window.phantom[key];
+          if (obj && typeof obj === 'object') {
+            console.log(`🔍 phantom.${key}:`, {
+              exists: true,
+              type: typeof obj,
+              keys: Object.keys(obj),
+              methods: Object.getOwnPropertyNames(obj).filter(prop => typeof obj[prop] === 'function'),
+              hasConnect: !!obj.connect,
+              hasRequest: !!obj.request,
+              hasEnable: !!obj.enable,
+              stringified: obj.toString().substring(0, 200)
+            });
+          }
+        });
+        
+        // Tests spécifiques
+        if (window.phantom.sui) {
+          console.log('🌊 SUI API detailed analysis:', {
+            connect: typeof window.phantom.sui.connect,
+            request: typeof window.phantom.sui.request,
+            requestPermissions: typeof window.phantom.sui.requestPermissions,
+            getAccounts: typeof window.phantom.sui.getAccounts,
+            allMethods: Object.getOwnPropertyNames(window.phantom.sui)
+          });
+        }
+        
+        if (window.phantom.solana) {
+          console.log('🔶 Solana API detailed analysis:', {
+            connect: typeof window.phantom.solana.connect,
+            request: typeof window.phantom.solana.request,
+            isConnected: window.phantom.solana.isConnected,
+            publicKey: window.phantom.solana.publicKey,
+            allMethods: Object.getOwnPropertyNames(window.phantom.solana)
+          });
+        }
+      } else {
+        console.log('❌ window.phantom does not exist');
+      }
+      
+      console.log('🔍 === END PHANTOM DEBUG ===');
+    }
+
     // Se connecter au wallet
     async function connectWallet() {
       try {
+        // Debug complet
+        debugPhantomAPIs();
+        
         if (!isPhantomInstalled()) {
           throw new Error('Phantom wallet is not installed');
         }
 
         showStatus('🔄 Connecting to Phantom...', 'info');
         
-        // Essayer d'abord l'API SUI si disponible
+        // Stratégie 1: Essayer toutes les méthodes SUI possibles
         if (window.phantom.sui) {
-          console.log('🔧 Trying Phantom SUI API');
-          const phantom = window.phantom.sui;
+          console.log('🌊 Attempting SUI connection with multiple methods...');
+          const suiProvider = window.phantom.sui;
           
-          // Méthode 1: requestPermissions puis getAccounts
+          // Méthode A: Standard connect
           try {
-            await phantom.requestPermissions({
-              permissions: ['viewAccount']
-            });
+            console.log('🔧 Trying direct connect()');
+            const result = await suiProvider.connect();
+            console.log('🔧 Direct connect result:', result);
             
-            const accounts = await phantom.getAccounts();
-            
-            if (accounts && accounts.length > 0) {
-              currentWallet = phantom;
-              currentAddress = accounts[0];
+            if (result && (result.accounts || result.account || result.address)) {
+              currentWallet = suiProvider;
+              currentAddress = result.accounts?.[0] || result.account || result.address;
               
-              // Mettre à jour l'affichage de l'adresse
               document.getElementById('walletAddress').textContent = 
                 `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
               
-              showStatus('🎉 Successfully connected to Phantom!', 'success');
+              showStatus('🎉 Successfully connected via SUI direct connect!', 'success');
               updateUI(true);
-              
-              // Récupérer le solde
               await getBalance();
-              
               return true;
             }
-          } catch (suiError) {
-            console.log('🔧 SUI API failed, trying alternative methods:', suiError);
+          } catch (directError) {
+            console.log('🔧 Direct connect failed:', directError);
+          }
+          
+          // Méthode B: Request method
+          if (suiProvider.request) {
+            try {
+              console.log('🔧 Trying request method for SUI');
+              const accounts = await suiProvider.request({
+                method: 'sui_requestAccounts'
+              });
+              console.log('🔧 Request result:', accounts);
+              
+              if (accounts && accounts.length > 0) {
+                currentWallet = suiProvider;
+                currentAddress = accounts[0];
+                
+                document.getElementById('walletAddress').textContent = 
+                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+                
+                showStatus('🎉 Successfully connected via SUI request!', 'success');
+                updateUI(true);
+                await getBalance();
+                return true;
+              }
+            } catch (requestError) {
+              console.log('🔧 SUI request failed:', requestError);
+            }
+          }
+          
+          // Méthode C: getAccounts direct (si déjà connecté)
+          if (suiProvider.getAccounts) {
+            try {
+              console.log('🔧 Trying getAccounts() for SUI');
+              const accounts = await suiProvider.getAccounts();
+              console.log('🔧 getAccounts result:', accounts);
+              
+              if (accounts && accounts.length > 0) {
+                currentWallet = suiProvider;
+                currentAddress = accounts[0];
+                
+                document.getElementById('walletAddress').textContent = 
+                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+                
+                showStatus('🎉 Successfully connected via SUI getAccounts!', 'success');
+                updateUI(true);
+                await getBalance();
+                return true;
+              }
+            } catch (getAccountsError) {
+              console.log('🔧 SUI getAccounts failed:', getAccountsError);
+            }
           }
         }
         
-        // Méthode alternative: utiliser l'API Solana si SUI n'est pas disponible
+        // Stratégie 2: Essayer Solana avec plus de patience
         if (window.phantom.solana) {
-          console.log('🔧 Trying Phantom Solana API as fallback');
-          const phantom = window.phantom.solana;
+          console.log('🔶 Attempting Solana connection...');
+          const solanaProvider = window.phantom.solana;
           
           try {
-            const response = await phantom.connect({ onlyIfTrusted: false });
-            
-            if (response && response.publicKey) {
-              currentWallet = phantom;
-              currentAddress = response.publicKey.toString();
+            // Vérifier si déjà connecté
+            if (solanaProvider.isConnected && solanaProvider.publicKey) {
+              console.log('🔧 Already connected to Solana');
+              currentWallet = solanaProvider;
+              currentAddress = solanaProvider.publicKey.toString();
               
-              // Mettre à jour l'affichage de l'adresse
               document.getElementById('walletAddress').textContent = 
                 `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
               
-              showStatus('🎉 Connected to Phantom! (Note: Using Solana API - SUI features may be limited)', 'success');
+              showStatus('🎉 Already connected to Phantom Solana!', 'success');
               updateUI(true);
-              
-              // Essayer de récupérer le solde
               await getBalance();
+              return true;
+            }
+            
+            // Nouvelle connexion
+            console.log('🔧 Attempting new Solana connection');
+            const response = await solanaProvider.connect({ 
+              onlyIfTrusted: false 
+            });
+            console.log('🔧 Solana connect response:', response);
+            
+            if (response && response.publicKey) {
+              currentWallet = solanaProvider;
+              currentAddress = response.publicKey.toString();
               
+              document.getElementById('walletAddress').textContent = 
+                `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+              
+              showStatus('🎉 Connected to Phantom! (Using Solana API for demonstration)', 'success');
+              updateUI(true);
+              await getBalance();
               return true;
             }
           } catch (solanaError) {
-            console.log('🔧 Solana API also failed:', solanaError);
+            console.log('🔧 Solana connection failed:', solanaError);
           }
         }
         
-        // Si toutes les méthodes échouent
-        throw new Error('Unable to connect with any Phantom API');
+        // Si tout échoue, donner des instructions détaillées
+        throw new Error(`Connection failed. Debug info: SUI API available: ${!!window.phantom.sui}, Solana API available: ${!!window.phantom.solana}. Check browser console for detailed logs.`);
         
       } catch (error) {
         console.error('Connection error:', error);
@@ -500,10 +620,10 @@
           errorMessage = 'Connection cancelled by user';
         } else if (error.message.includes('not installed')) {
           errorMessage = 'Phantom wallet is not installed';
-        } else if (error.message.includes('permissions')) {
-          errorMessage = 'Permission denied. Please approve the connection in Phantom.';
-        } else {
+        } else if (error.message.includes('Debug info')) {
           errorMessage = error.message;
+        } else {
+          errorMessage = `${error.message}. Check console for debug info.`;
         }
         
         showStatus(`❌ ${errorMessage}`, 'error');
