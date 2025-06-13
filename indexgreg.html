@@ -1,4 +1,24 @@
-<!DOCTYPE html>
+connectBtn.addEventListener('click', async () => {
+            // Vérifier d'abord si on est connecté pour gérer la déconnexion
+            if (isConnected || connectionState.isConnected) {
+                disconnect();
+                return;
+            }
+
+            // Vérifier d'abord si on a un état de connexion sauvegardé
+            if (loadConnectionState() && connectionState.address) {
+                console.log('Connexion existante détectée, restauration...');
+                showConnectedState();
+                return;
+            }
+
+            try {
+                // Afficher le loading
+                connectBtn.style.display = 'none';
+                loading.style.display = 'block';
+
+                // Connexion réelle à Phantom
+                const result = await connectPh<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -405,10 +425,17 @@
             isConnected = true;
             userAddress = connectionState.address;
             
+            // Mettre à jour l'interface
             walletInfo.classList.add('active');
             walletAddress.textContent = userAddress;
+            
+            // IMPORTANT: Mettre à jour le bouton pour afficher "Se déconnecter"
             connectBtn.textContent = '🔓 Se déconnecter';
             connectBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            connectBtn.style.display = 'block'; // S'assurer que le bouton est visible
+            
+            // Cacher le loading au cas où
+            loading.style.display = 'none';
             
             console.log('État connecté restauré:', userAddress);
         }
@@ -472,7 +499,9 @@
                     errorMessage = 'La connexion a expiré. Avez-vous approuvé la demande dans Phantom ?';
                 } else if (error.message.includes('non approuvée')) {
                     errorMessage = 'Veuillez approuver la connexion dans la popup Phantom qui s\'ouvre.';
-                } else if (error.message.includes('Unexpected error') || error.message.includes('$e')) {
+                } else if (error.message.includes('Unexpected error') || 
+                          error.message.includes('$e') || 
+                          error.message.includes('Cannot read properties of undefined')) {
                     // Plus de popup, juste un log pour les développeurs
                     console.log('ℹ️ Erreur technique Phantom gérée automatiquement. L\'intégration Sui est récente.');
                     errorMessage = 'Connexion établie malgré une erreur technique de Phantom.';
@@ -741,22 +770,37 @@
             document.querySelector('.container').appendChild(diagnosticDiv);
         }
 
-        // Écouter les changements de compte
+        // Écouter les changements de compte - Avec protection contre les erreurs
         if (window.phantom?.sui) {
-            window.phantom.sui.on('accountChanged', (accounts) => {
-                if (accounts.length === 0) {
-                    disconnect();
-                } else {
-                    userAddress = accounts[0].address;
-                    if (walletAddress) {
-                        walletAddress.textContent = userAddress;
-                    }
-                }
-            });
+            try {
+                // Protection contre les événements qui pourraient causer des erreurs
+                if (window.phantom.sui.on && typeof window.phantom.sui.on === 'function') {
+                    window.phantom.sui.on('accountChanged', (accounts) => {
+                        try {
+                            if (accounts && accounts.length === 0) {
+                                disconnect();
+                            } else if (accounts && accounts.length > 0 && accounts[0].address) {
+                                userAddress = accounts[0].address;
+                                if (walletAddress) {
+                                    walletAddress.textContent = userAddress;
+                                }
+                            }
+                        } catch (e) {
+                            console.log('Erreur lors du traitement accountChanged:', e);
+                        }
+                    });
 
-            window.phantom.sui.on('disconnect', () => {
-                disconnect();
-            });
+                    window.phantom.sui.on('disconnect', () => {
+                        try {
+                            disconnect();
+                        } catch (e) {
+                            console.log('Erreur lors de la déconnexion automatique:', e);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.log('Erreur lors de l\'ajout des listeners:', e);
+            }
         }
 
         // Vérifier la connexion au chargement
