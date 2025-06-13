@@ -1,35 +1,41 @@
-// WorldRoom.js
 const colyseus = require("colyseus");
 
-class WorldRoom extends colyseus.Room {
-  onCreate(options) {
-    // Structure partagée par tous les clients
-    this.setState({
-      players: {}
-    });
-
-    // Quand un client envoie des messages
-    this.onMessage("move", (client, data) => {
-      if (this.state.players[client.sessionId]) {
-        // Met à jour la position du joueur
-        this.state.players[client.sessionId].x = data.x;
-        this.state.players[client.sessionId].y = data.y;
-      }
-    });
-  }
-
-  // Quand un joueur rejoint la room
-  onJoin(client, options) {
-    // Ajoute le joueur avec une position de départ
-    this.state.players[client.sessionId] = { x: 100, y: 100 };
-    console.log("Player joined:", client.sessionId);
-  }
-
-  // Quand un joueur quitte la room
-  onLeave(client, consented) {
-    delete this.state.players[client.sessionId];
-    console.log("Player left:", client.sessionId);
-  }
+class Player {
+    constructor(x = 400, y = 300) {
+        this.x = x;
+        this.y = y;
+    }
 }
 
-module.exports = { WorldRoom };
+class State {
+    constructor() {
+        this.players = {};
+    }
+    createPlayer(sessionId) {
+        this.players[sessionId] = new Player();
+    }
+    removePlayer(sessionId) {
+        delete this.players[sessionId];
+    }
+    movePlayer(sessionId, x, y) {
+        if (this.players[sessionId]) {
+            this.players[sessionId].x = x;
+            this.players[sessionId].y = y;
+        }
+    }
+}
+
+exports.WorldRoom = class extends colyseus.Room {
+    onCreate() {
+        this.setState(new State());
+        this.onMessage("*", (client, data) => {
+            this.state.movePlayer(client.sessionId, data.x, data.y);
+        });
+    }
+    onJoin(client) {
+        this.state.createPlayer(client.sessionId);
+    }
+    onLeave(client) {
+        this.state.removePlayer(client.sessionId);
+    }
+};
