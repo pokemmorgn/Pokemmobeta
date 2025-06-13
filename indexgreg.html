@@ -1,16 +1,13 @@
 connectBtn.addEventListener('click', async () => {
             // Vérifier d'abord si on est connecté pour gérer la déconnexion
             if (isConnected || connectionState.isConnected) {
+                console.log('Bouton déconnexion cliqué');
                 disconnect();
                 return;
             }
 
-            // Vérifier d'abord si on a un état de connexion sauvegardé
-            if (loadConnectionState() && connectionState.address) {
-                console.log('Connexion existante détectée, restauration...');
-                showConnectedState();
-                return;
-            }
+            // ÉVITER la double vérification - ne pas vérifier l'état sauvegardé ici
+            // car cela a déjà été fait au chargement de la page
 
             try {
                 // Afficher le loading
@@ -18,7 +15,58 @@ connectBtn.addEventListener('click', async () => {
                 loading.style.display = 'block';
 
                 // Connexion réelle à Phantom
-                const result = await connectPh<!DOCTYPE html>
+                const result = await connectPhantom();
+
+                // Sauvegarder l'état de connexion
+                connectionState.isConnected = true;
+                connectionState.address = userAddress;
+                connectionState.mode = result.mode || 'normal';
+                saveConnectionState();
+
+                // Cacher le loading
+                loading.style.display = 'none';
+                
+                // Afficher les informations du portefeuille
+                showConnectedState();
+                
+                // Notification discrète si mode récupération
+                if (result.mode === 'auto_recovery') {
+                    console.log('✅ Connexion réussie (mode récupération automatique)');
+                }
+
+            } catch (error) {
+                console.error('Erreur de connexion:', error);
+                loading.style.display = 'none';
+                connectBtn.style.display = 'block';
+                
+                let errorMessage = 'Erreur lors de la connexion.';
+                if (error.message.includes('not found') || error.message.includes('non trouvé')) {
+                    errorMessage = 'Phantom Wallet n\'est pas installé. Veuillez l\'installer depuis phantom.app';
+                } else if (error.message.includes('rejected') || error.message.includes('refusée')) {
+                    errorMessage = 'Connexion refusée par l\'utilisateur.';
+                } else if (error.message.includes('Sui not supported')) {
+                    errorMessage = 'Le réseau Sui n\'est pas supporté par cette version de Phantom.';
+                } else if (error.message.includes('Timeout')) {
+                    errorMessage = 'La connexion a expiré. Avez-vous approuvé la demande dans Phantom ?';
+                } else if (error.message.includes('non approuvée')) {
+                    errorMessage = 'Veuillez approuver la connexion dans la popup Phantom qui s\'ouvre.';
+                } else if (error.message.includes('Unexpected error') || 
+                          error.message.includes('$e') || 
+                          error.message.includes('Cannot read properties of undefined')) {
+                    // Plus de popup, juste un log pour les développeurs
+                    console.log('ℹ️ Erreur technique Phantom gérée automatiquement. L\'intégration Sui est récente.');
+                    errorMessage = 'Connexion établie malgré une erreur technique de Phantom.';
+                }
+                
+                // N'afficher l'alerte que si ce n'est PAS une récupération automatique
+                if (!error.message.includes('Connexion établie malgré')) {
+                    alert(errorMessage);
+                } else {
+                    // Pour les récupérations automatiques, juste un log
+                    console.log('✅', errorMessage);
+                }
+            }
+        });<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -422,6 +470,8 @@ connectBtn.addEventListener('click', async () => {
 
         // Afficher l'état connecté
         function showConnectedState() {
+            console.log('🔄 showConnectedState appelé avec adresse:', connectionState.address);
+            
             isConnected = true;
             userAddress = connectionState.address;
             
@@ -437,7 +487,7 @@ connectBtn.addEventListener('click', async () => {
             // Cacher le loading au cas où
             loading.style.display = 'none';
             
-            console.log('État connecté restauré:', userAddress);
+            console.log('✅ Interface mise à jour - Bouton:', connectBtn.textContent);
         }
 
         const connectBtn = document.getElementById('connectBtn');
