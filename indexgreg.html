@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Phantom SUI Wallet Connector</title>
+  <title>Phantom SUI Wallet</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,427 +11,628 @@
     }
 
     body { 
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
       color: #fff; 
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow-x: hidden;
     }
 
     .container {
-      max-width: 500px;
+      max-width: 600px;
       width: 100%;
       padding: 20px;
     }
 
-    .main-card {
-      background: rgba(30, 41, 59, 0.8);
+    .wallet-card {
+      background: rgba(26, 26, 46, 0.9);
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(99, 102, 241, 0.2);
-      border-radius: 20px;
+      border: 1px solid rgba(171, 154, 255, 0.3);
+      border-radius: 24px;
       padding: 40px;
       text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+      position: relative;
+      overflow: hidden;
     }
 
-    .version-badge {
-      position: fixed; 
-      top: 10px; 
-      right: 10px; 
-      background: rgba(99, 102, 241, 0.2); 
-      border: 1px solid rgba(99, 102, 241, 0.4); 
-      border-radius: 6px; 
-      padding: 8px 12px; 
-      font-size: 0.8rem; 
-      color: #a5b4fc; 
-      z-index: 9999;
+    .wallet-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(171, 154, 255, 0.8), transparent);
+    }
+
+    .phantom-logo {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      display: block;
+      filter: drop-shadow(0 0 20px rgba(171, 154, 255, 0.5));
     }
 
     h1 {
-      font-size: 2rem;
+      font-size: 2.5rem;
       font-weight: 700;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+      background: linear-gradient(135deg, #ab9aff, #6c5ce7, #a29bfe);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 10px;
     }
 
     .subtitle {
-      color: #94a3b8;
-      margin-bottom: 30px;
-      font-size: 1.1rem;
+      color: #b2b2d9;
+      margin-bottom: 40px;
+      font-size: 1.2rem;
+      line-height: 1.5;
     }
 
-    .wallet-section {
+    .connect-section {
       margin-bottom: 30px;
     }
 
-    .phantom-btn {
-      background: linear-gradient(135deg, #AB9FF2, #6366f1);
+    .connect-btn {
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
       border: none;
-      border-radius: 12px;
+      border-radius: 16px;
       color: white;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       font-weight: 600;
-      padding: 16px 32px;
+      padding: 20px 40px;
       cursor: pointer;
       transition: all 0.3s ease;
       width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
     }
 
-    .phantom-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 20px 25px -5px rgba(171, 159, 242, 0.4);
+    .connect-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px -10px rgba(108, 92, 231, 0.5);
     }
 
-    .phantom-btn:disabled {
-      background: #555;
+    .connect-btn:active {
+      transform: translateY(-1px);
+    }
+
+    .connect-btn:disabled {
+      opacity: 0.6;
       cursor: not-allowed;
       transform: none;
     }
 
-    .phantom-btn.not-available {
-      background: #7f1d1d;
-    }
-
     .status {
       margin-top: 20px;
-      padding: 15px;
-      border-radius: 12px;
+      padding: 20px;
+      border-radius: 16px;
       font-weight: 500;
+      text-align: left;
     }
 
     .status.success {
-      background: rgba(34, 197, 94, 0.2);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: #4ade80;
+      background: rgba(46, 204, 113, 0.2);
+      border: 1px solid rgba(46, 204, 113, 0.4);
+      color: #58d68d;
     }
 
     .status.error {
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #f87171;
+      background: rgba(231, 76, 60, 0.2);
+      border: 1px solid rgba(231, 76, 60, 0.4);
+      color: #ec7063;
     }
 
     .status.info {
-      background: rgba(59, 130, 246, 0.2);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      color: #60a5fa;
-    }
-
-    .address-display {
-      margin-top: 15px;
-      padding: 12px;
-      background: rgba(51, 65, 85, 0.8);
-      border-radius: 8px;
-      font-family: 'Monaco', monospace;
-      font-size: 0.9rem;
-      word-break: break-all;
-      color: #a5f3fc;
+      background: rgba(52, 152, 219, 0.2);
+      border: 1px solid rgba(52, 152, 219, 0.4);
+      color: #5dade2;
     }
 
     .wallet-info {
-      background: rgba(51, 65, 85, 0.6);
-      border: 1px solid rgba(99, 102, 241, 0.2);
-      border-radius: 12px;
-      padding: 20px;
-      margin-top: 20px;
+      display: none;
+      margin-top: 30px;
+      padding: 25px;
+      background: rgba(22, 33, 62, 0.8);
+      border-radius: 16px;
+      border: 1px solid rgba(171, 154, 255, 0.2);
     }
 
-    .wallet-info h3 {
-      color: #f1f5f9;
-      margin-bottom: 15px;
+    .wallet-info.show {
+      display: block;
+      animation: slideIn 0.5s ease;
     }
 
     .info-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 0.9rem;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(171, 154, 255, 0.1);
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
     }
 
     .info-label {
-      color: #94a3b8;
+      color: #b2b2d9;
+      font-weight: 500;
     }
 
     .info-value {
-      color: #f1f5f9;
-      font-family: monospace;
-    }
-
-    .disconnect-btn {
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      border-radius: 8px;
-      color: #f87171;
-      padding: 8px 16px;
-      cursor: pointer;
+      color: #fff;
+      font-family: 'Monaco', monospace;
       font-size: 0.9rem;
-      margin-top: 15px;
+      word-break: break-all;
+      text-align: right;
+      max-width: 60%;
     }
 
-    .disconnect-btn:hover {
-      background: rgba(239, 68, 68, 0.3);
+    .address-display {
+      background: rgba(171, 154, 255, 0.1);
+      padding: 15px;
+      border-radius: 12px;
+      font-family: 'Monaco', monospace;
+      font-size: 0.85rem;
+      word-break: break-all;
+      color: #ab9aff;
+      border: 1px solid rgba(171, 154, 255, 0.3);
     }
 
-    .actions {
+    .action-buttons {
+      display: none;
+      gap: 15px;
+      margin-top: 25px;
+    }
+
+    .action-buttons.show {
       display: flex;
-      gap: 10px;
-      margin-top: 15px;
+      animation: slideIn 0.5s ease 0.2s both;
     }
 
     .action-btn {
       flex: 1;
-      background: rgba(99, 102, 241, 0.2);
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      border-radius: 8px;
-      color: #a5b4fc;
-      padding: 10px;
+      background: rgba(171, 154, 255, 0.2);
+      border: 1px solid rgba(171, 154, 255, 0.4);
+      border-radius: 12px;
+      color: #ab9aff;
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 15px 20px;
       cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
     }
 
     .action-btn:hover {
-      background: rgba(99, 102, 241, 0.3);
-      color: #c7d2fe;
+      background: rgba(171, 154, 255, 0.3);
+      border-color: rgba(171, 154, 255, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .action-btn.disconnect {
+      background: rgba(231, 76, 60, 0.2);
+      border-color: rgba(231, 76, 60, 0.4);
+      color: #ec7063;
+    }
+
+    .action-btn.disconnect:hover {
+      background: rgba(231, 76, 60, 0.3);
+      border-color: rgba(231, 76, 60, 0.6);
+    }
+
+    .installation-guide {
+      display: none;
+      margin-top: 30px;
+      padding: 25px;
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      border-radius: 16px;
+      color: #ffc107;
+      text-align: left;
+    }
+
+    .installation-guide.show {
+      display: block;
+      animation: slideIn 0.5s ease;
+    }
+
+    .install-link {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      border-radius: 10px;
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform 0.3s ease;
+    }
+
+    .install-link:hover {
+      transform: translateY(-2px);
+    }
+
+    .network-badge {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(46, 204, 113, 0.2);
+      border: 1px solid rgba(46, 204, 113, 0.4);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 0.8rem;
+      color: #58d68d;
+      font-weight: 600;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: #ab9aff;
+      cursor: pointer;
+      padding: 5px;
+      border-radius: 6px;
+      transition: background 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: rgba(171, 154, 255, 0.2);
     }
   </style>
 </head>
 <body>
-  <div class="version-badge">      v5.1.0 - SUI Only</div>
-  
   <div class="container">
-    <div class="main-card">
-      <h1>👻 Phantom SUI</h1>
-      <p class="subtitle">Connect your Phantom wallet to access SUI</p>
+    <div class="wallet-card">
+      <div class="network-badge">SUI Network</div>
       
-      <div class="wallet-section">
-        <button class="phantom-btn" id="phantomBtn">
-          <span>👻</span>
-          <span id="phantomBtnText">Connect Phantom Wallet</span>
+      <div class="phantom-logo">👻</div>
+      <h1>Phantom Wallet</h1>
+      <p class="subtitle">Connect your Phantom wallet to access SUI blockchain features</p>
+      
+      <div class="connect-section">
+        <button class="connect-btn" id="connectBtn" onclick="handleConnection()">
+          <span id="btnText">Connect Phantom Wallet</span>
         </button>
       </div>
       
       <div id="status"></div>
-      <div id="walletInfo" style="display: none;"></div>
+      
+      <!-- Wallet Info Panel -->
+      <div class="wallet-info" id="walletInfo">
+        <div class="info-row">
+          <span class="info-label">Connected Wallet:</span>
+          <span class="info-value">Phantom</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Network:</span>
+          <span class="info-value">SUI Mainnet</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Address:</span>
+          <div class="info-value">
+            <span id="walletAddress"></span>
+            <button class="copy-btn" onclick="copyAddress()" title="Copy address">📋</button>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Balance:</span>
+          <span class="info-value" id="walletBalance">Loading...</span>
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div class="action-buttons" id="actionButtons">
+        <button class="action-btn" onclick="getBalance()">Refresh Balance</button>
+        <button class="action-btn" onclick="getAccountInfo()">Account Info</button>
+        <button class="action-btn disconnect" onclick="disconnect()">Disconnect</button>
+      </div>
+      
+      <!-- Installation Guide -->
+      <div class="installation-guide" id="installationGuide">
+        <h3>⚠️ Phantom Wallet Not Detected</h3>
+        <p>Please install Phantom wallet to continue:</p>
+        <ol style="margin: 15px 0; padding-left: 20px;">
+          <li>Install Phantom browser extension</li>
+          <li>Create or import your wallet</li>
+          <li>Refresh this page</li>
+        </ol>
+        <a href="https://phantom.app/" target="_blank" class="install-link">
+          👻 Install Phantom Wallet
+        </a>
+      </div>
     </div>
   </div>
 
   <script>
-    let connectedWallet = null;
-    let userAddress = null;
+    let currentWallet = null;
+    let currentAddress = null;
 
-    const phantomBtn = document.getElementById('phantomBtn');
-    const phantomBtnText = document.getElementById('phantomBtnText');
-    const statusDiv = document.getElementById('status');
-    const walletInfoDiv = document.getElementById('walletInfo');
-
-    // État de l'application
-    let isConnecting = false;
-
-    function updateStatus(message, type = 'info') {
-      statusDiv.innerHTML = `<div class="status ${type}">${message.replace(/\n/g, '<br>')}</div>`;
+    // Vérifier si Phantom est installé
+    function isPhantomInstalled() {
+      return !!(window.phantom && window.phantom.sui);
     }
 
-    function updateWalletInfo(address, provider) {
-      userAddress = address;
-      walletInfoDiv.innerHTML = `
-        <div class="wallet-info">
-          <h3>👻 Phantom Connected</h3>
-          <div class="info-row">
-            <span class="info-label">Address:</span>
-            <span class="info-value">${address}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Network:</span>
-            <span class="info-value">SUI Mainnet</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Provider:</span>
-            <span class="info-value">Phantom SUI</span>
-          </div>
-          
-          <div class="actions">
-            <button class="action-btn" onclick="getBalance()">💰 Get Balance</button>
-            <button class="action-btn" onclick="signMessage()">✍️ Sign Message</button>
-          </div>
-          
-          <button class="disconnect-btn" onclick="disconnect()">🔌 Disconnect</button>
-        </div>
-      `;
-      walletInfoDiv.style.display = 'block';
+    // Afficher le statut
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
     }
 
-    async function detectPhantom() {
-      // Vérifier uniquement Phantom SUI
-      if (window.phantom && window.phantom.sui) {
-        console.log('👻 Phantom SUI detected');
-        return window.phantom;
-      }
+    // Mettre à jour l'interface utilisateur
+    function updateUI(connected = false) {
+      const connectBtn = document.getElementById('connectBtn');
+      const btnText = document.getElementById('btnText');
+      const walletInfo = document.getElementById('walletInfo');
+      const actionButtons = document.getElementById('actionButtons');
+      const installationGuide = document.getElementById('installationGuide');
 
-      console.log('👻 Phantom SUI not found');
-      return null;
-    }
-
-    async function connectPhantom() {
-      if (isConnecting) return;
-      
-      isConnecting = true;
-      phantomBtn.disabled = true;
-      phantomBtnText.textContent = 'Connecting...';
-      updateStatus('🔄 Connecting to Phantom...', 'info');
-
-      try {
-        const phantom = await detectPhantom();
-        
-        if (!phantom) {
-          throw new Error('Phantom wallet not found. Please install Phantom extension.');
-        }
-
-        console.log('👻 Phantom provider:', phantom);
-        console.log('👻 Available methods:', Object.getOwnPropertyNames(phantom));
-
-        let result;
-        let address;
-
-        // Connexion SUI uniquement
-        if (!phantom.sui || !phantom.sui.connect) {
-          throw new Error('Phantom SUI not available. Please enable SUI network in Phantom settings.');
-        }
-
-        console.log('👻 Using Phantom SUI API');
-        console.log('👻 Phantom.sui object:', phantom.sui);
-        console.log('👻 SUI methods:', Object.getOwnPropertyNames(phantom.sui));
-        
-        result = await phantom.sui.connect();
-        console.log('👻 SUI connection result:', result);
-        address = result.accounts?.[0] || result.address;
-
-        if (!address) {
-          throw new Error('No address returned from Phantom');
-        }
-
-        // Connexion réussie
-        connectedWallet = phantom;
-        phantomBtnText.textContent = 'Connected ✅';
-        phantomBtn.style.background = 'rgba(34, 197, 94, 0.3)';
-        
-        updateStatus('🎉 Successfully connected to Phantom!', 'success');
-        updateWalletInfo(address, phantom);
-
-        console.log('👻 Connection successful:', { address, result });
-
-      } catch (error) {
-        console.error('👻 Connection error:', error);
-        updateStatus(`❌ Connection failed: ${error.message}`, 'error');
-        
-        phantomBtnText.textContent = 'Retry Connection';
-        phantomBtn.disabled = false;
-      } finally {
-        isConnecting = false;
-      }
-    }
-
-    async function getBalance() {
-      if (!connectedWallet || !userAddress) {
-        updateStatus('❌ No wallet connected', 'error');
+      if (!isPhantomInstalled()) {
+        installationGuide.classList.add('show');
+        connectBtn.style.display = 'none';
         return;
       }
 
-      updateStatus('💰 Getting balance...', 'info');
-
-      try {
-        // Simuler récupération de balance (à remplacer par vraie API SUI)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // TODO: Intégrer avec SUI RPC pour récupérer le vrai balance
-        const mockBalance = (Math.random() * 100).toFixed(2);
-        
-        updateStatus(`💰 Balance: ${mockBalance} SUI`, 'success');
-      } catch (error) {
-        updateStatus(`❌ Failed to get balance: ${error.message}`, 'error');
-      }
-    }
-
-    async function signMessage() {
-      if (!connectedWallet || !userAddress) {
-        updateStatus('❌ No wallet connected', 'error');
-        return;
-      }
-
-      updateStatus('✍️ Requesting signature...', 'info');
-
-      try {
-        const message = `Hello SUI! Signed at ${new Date().toISOString()}`;
-        
-        // Utiliser l'API de signature SUI uniquement
-        if (!connectedWallet.sui || !connectedWallet.sui.signMessage) {
-          throw new Error('SUI signature not supported');
-        }
-
-        const signature = await connectedWallet.sui.signMessage({ message });
-
-        updateStatus(`✍️ Message signed successfully!<div class="address-display">Signature: ${signature}</div>`, 'success');
-      } catch (error) {
-        if (error.message.includes('rejected') || error.code === 4001) {
-          updateStatus('❌ Signature cancelled by user', 'error');
-        } else {
-          updateStatus(`❌ Failed to sign message: ${error.message}`, 'error');
-        }
-      }
-    }
-
-    function disconnect() {
-      connectedWallet = null;
-      userAddress = null;
-      
-      phantomBtn.disabled = false;
-      phantomBtnText.textContent = 'Connect Phantom Wallet';
-      phantomBtn.style.background = '';
-      
-      walletInfoDiv.style.display = 'none';
-      updateStatus('🔌 Wallet disconnected', 'info');
-    }
-
-    // Event listeners
-    phantomBtn.addEventListener('click', connectPhantom);
-
-    // Initialisation
-    async function init() {
-      const phantom = await detectPhantom();
-      
-      if (!phantom) {
-        phantomBtn.disabled = true;
-        phantomBtn.classList.add('not-available');
-        phantomBtnText.textContent = 'Phantom Not Installed';
-        updateStatus(`❌ Phantom wallet not detected.<br><br>📥 <strong>Install Phantom:</strong><br><a href="https://phantom.app/" target="_blank" style="color: #60a5fa;">https://phantom.app/</a>`, 'error');
+      if (connected) {
+        btnText.textContent = 'Connected ✓';
+        connectBtn.disabled = true;
+        walletInfo.classList.add('show');
+        actionButtons.classList.add('show');
       } else {
-        updateStatus('👻 Phantom detected! Click to connect.', 'success');
+        btnText.textContent = 'Connect Phantom Wallet';
+        connectBtn.disabled = false;
+        walletInfo.classList.remove('show');
+        actionButtons.classList.remove('show');
       }
     }
 
-    // Lancer l'initialisation
-    init();
-
-    // Écouter les changements de compte Phantom
-    if (window.phantom) {
-      window.phantom.on?.('accountChanged', (account) => {
-        if (account && connectedWallet) {
-          console.log('👻 Account changed:', account);
-          userAddress = account;
-          updateWalletInfo(account, connectedWallet);
-        } else if (!account && connectedWallet) {
-          disconnect();
+    // Se connecter au wallet
+    async function connectWallet() {
+      try {
+        if (!isPhantomInstalled()) {
+          throw new Error('Phantom wallet is not installed');
         }
-      });
+
+        showStatus('🔄 Connecting to Phantom...', 'info');
+        
+        const phantom = window.phantom.sui;
+        
+        // Tenter la connexion
+        const response = await phantom.connect();
+        
+        if (response && response.accounts && response.accounts.length > 0) {
+          currentWallet = phantom;
+          currentAddress = response.accounts[0];
+          
+          // Mettre à jour l'affichage de l'adresse
+          document.getElementById('walletAddress').textContent = 
+            `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+          
+          showStatus('🎉 Successfully connected to Phantom!', 'success');
+          updateUI(true);
+          
+          // Récupérer le solde
+          await getBalance();
+          
+          return true;
+        } else {
+          throw new Error('No accounts returned from Phantom');
+        }
+        
+      } catch (error) {
+        console.error('Connection error:', error);
+        
+        let errorMessage = 'Failed to connect to Phantom';
+        if (error.message.includes('User rejected')) {
+          errorMessage = 'Connection cancelled by user';
+        } else if (error.message.includes('not installed')) {
+          errorMessage = 'Phantom wallet is not installed';
+        } else {
+          errorMessage = error.message;
+        }
+        
+        showStatus(`❌ ${errorMessage}`, 'error');
+        updateUI(false);
+        return false;
+      }
     }
+
+    // Se déconnecter
+    async function disconnect() {
+      try {
+        if (currentWallet && currentWallet.disconnect) {
+          await currentWallet.disconnect();
+        }
+        
+        currentWallet = null;
+        currentAddress = null;
+        
+        showStatus('👋 Disconnected from Phantom', 'info');
+        updateUI(false);
+        
+      } catch (error) {
+        console.error('Disconnect error:', error);
+        // Force la déconnexion même en cas d'erreur
+        currentWallet = null;
+        currentAddress = null;
+        updateUI(false);
+        showStatus('👋 Disconnected from Phantom', 'info');
+      }
+    }
+
+    // Récupérer le solde
+    async function getBalance() {
+      if (!currentWallet || !currentAddress) {
+        showStatus('❌ No wallet connected', 'error');
+        return;
+      }
+
+      try {
+        document.getElementById('walletBalance').textContent = 'Loading...';
+        
+        // Utiliser l'API SUI pour récupérer le solde
+        const balanceResponse = await currentWallet.getBalance({
+          owner: currentAddress,
+        });
+        
+        if (balanceResponse && balanceResponse.totalBalance) {
+          // Convertir de MIST en SUI (1 SUI = 1,000,000,000 MIST)
+          const suiBalance = (parseInt(balanceResponse.totalBalance) / 1000000000).toFixed(4);
+          document.getElementById('walletBalance').textContent = `${suiBalance} SUI`;
+        } else {
+          document.getElementById('walletBalance').textContent = '0.0000 SUI';
+        }
+        
+      } catch (error) {
+        console.error('Balance error:', error);
+        document.getElementById('walletBalance').textContent = 'Error loading balance';
+        showStatus(`❌ Failed to get balance: ${error.message}`, 'error');
+      }
+    }
+
+    // Récupérer les informations du compte
+    async function getAccountInfo() {
+      if (!currentWallet || !currentAddress) {
+        showStatus('❌ No wallet connected', 'error');
+        return;
+      }
+
+      try {
+        showStatus('🔄 Getting account information...', 'info');
+        
+        // Récupérer les objets possédés par l'adresse
+        const ownedObjects = await currentWallet.getOwnedObjects({
+          owner: currentAddress,
+          options: {
+            showType: true,
+            showContent: true,
+          },
+        });
+
+        const objectCount = ownedObjects?.data?.length || 0;
+        
+        showStatus(`📊 Account Info: ${objectCount} objects owned`, 'success');
+        
+      } catch (error) {
+        console.error('Account info error:', error);
+        showStatus(`❌ Failed to get account info: ${error.message}`, 'error');
+      }
+    }
+
+    // Copier l'adresse
+    function copyAddress() {
+      if (currentAddress) {
+        navigator.clipboard.writeText(currentAddress).then(() => {
+          showStatus('📋 Address copied to clipboard!', 'success');
+        }).catch(err => {
+          console.error('Copy failed:', err);
+          showStatus('❌ Failed to copy address', 'error');
+        });
+      }
+    }
+
+    // Gestionnaire de connexion principal
+    async function handleConnection() {
+      const connectBtn = document.getElementById('connectBtn');
+      const btnText = document.getElementById('btnText');
+      
+      if (currentWallet && currentAddress) {
+        // Déjà connecté, ne rien faire
+        return;
+      }
+      
+      // Désactiver le bouton pendant la connexion
+      connectBtn.disabled = true;
+      btnText.innerHTML = '<span class="loading"></span> Connecting...';
+      
+      const connected = await connectWallet();
+      
+      if (!connected) {
+        // Réactiver le bouton en cas d'échec
+        connectBtn.disabled = false;
+        btnText.textContent = 'Connect Phantom Wallet';
+      }
+    }
+
+    // Écouter les événements de déconnexion de Phantom
+    function setupWalletListeners() {
+      if (isPhantomInstalled()) {
+        const phantom = window.phantom.sui;
+        
+        // Écouter les changements d'état
+        phantom.on('disconnect', () => {
+          console.log('Phantom disconnected');
+          disconnect();
+        });
+        
+        phantom.on('accountChanged', (newAccount) => {
+          console.log('Account changed:', newAccount);
+          if (newAccount) {
+            currentAddress = newAccount;
+            document.getElementById('walletAddress').textContent = 
+              `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+            getBalance();
+          } else {
+            disconnect();
+          }
+        });
+      }
+    }
+
+    // Initialisation au chargement de la page
+    window.addEventListener('load', () => {
+      // Attendre un peu pour que Phantom soit complètement chargé
+      setTimeout(() => {
+        updateUI(false);
+        setupWalletListeners();
+        
+        if (isPhantomInstalled()) {
+          showStatus('👻 Phantom wallet detected! Click to connect.', 'success');
+        } else {
+          showStatus('⚠️ Phantom wallet not found. Please install it.', 'error');
+        }
+      }, 1000);
+    });
+
+    // Gestion des erreurs globales
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+    });
   </script>
 </body>
 </html>
