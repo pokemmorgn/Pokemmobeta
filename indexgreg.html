@@ -346,6 +346,9 @@
                 <h4 style="color: #374151; margin-bottom: 8px;">✅ Portefeuille connecté</h4>
                 <p style="color: #6b7280; font-size: 14px;">Adresse du portefeuille :</p>
                 <div class="wallet-address" id="walletAddress"></div>
+                <div id="demoWarning" style="display: none; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-top: 12px; color: #92400e; font-size: 12px;">
+                    ⚠️ <strong>Mode démonstration</strong> - Cette adresse est fictive et ne peut pas être utilisée pour des transactions réelles.
+                </div>
             </div>
         </div>
 
@@ -415,6 +418,21 @@
             // Mettre à jour l'interface
             walletInfo.classList.add('active');
             walletAddress.textContent = userAddress;
+            
+            // Afficher l'avertissement selon le mode
+            const demoWarning = document.getElementById('demoWarning');
+            if (userAddress.startsWith('TEMP_')) {
+                demoWarning.innerHTML = '⚠️ <strong>Mode temporaire</strong> - Erreur technique de Phantom. La vraie adresse n\'a pas pu être récupérée.';
+                demoWarning.style.display = 'block';
+            } else if (connectionState.mode === 'real_recovery') {
+                demoWarning.innerHTML = '✅ <strong>Vraie adresse récupérée</strong> - Connexion réelle malgré l\'erreur technique de Phantom.';
+                demoWarning.style.background = '#d1fae5';
+                demoWarning.style.borderColor = '#10b981';
+                demoWarning.style.color = '#065f46';
+                demoWarning.style.display = 'block';
+            } else {
+                demoWarning.style.display = 'none';
+            }
             
             // IMPORTANT: Mettre à jour le bouton pour afficher "Se déconnecter"
             connectBtn.textContent = '🔓 Se déconnecter';
@@ -590,12 +608,39 @@
                             throw new Error('Timeout: Aucune réponse de l\'utilisateur dans les 60 secondes');
                         }
                         
-                        // Si erreur mais qu'on peut détecter une connexion existante
-                        if (suiProvider.publicKey || suiProvider.account || window.phantom._accounts) {
-                            console.log('Erreur mais connexion potentiellement établie, vérification...');
+                        // NOUVEAU: Essayer de récupérer la vraie adresse malgré l'erreur
+                        console.log('Tentative de récupération de la vraie adresse...');
+                        
+                        // Méthode 1: Vérifier si Phantom a stocké l'adresse quelque part
+                        if (suiProvider.publicKey) {
+                            console.log('Adresse trouvée dans publicKey');
+                            userAddress = suiProvider.publicKey.toString();
                             userApproved = true;
-                            response = { address: 'detected_from_error' };
-                        } else {
+                            response = { address: userAddress, source: 'publicKey' };
+                        } 
+                        // Méthode 2: Chercher dans les comptes phantom globaux
+                        else if (window.phantom._accounts && window.phantom._accounts.length > 0) {
+                            console.log('Adresse trouvée dans _accounts');
+                            userAddress = window.phantom._accounts[0].address;
+                            userApproved = true;
+                            response = { address: userAddress, source: '_accounts' };
+                        }
+                        // Méthode 3: Chercher dans suiProvider lui-même
+                        else if (suiProvider.account && suiProvider.account.address) {
+                            console.log('Adresse trouvée dans account');
+                            userAddress = suiProvider.account.address;
+                            userApproved = true;
+                            response = { address: userAddress, source: 'account' };
+                        }
+                        // Méthode 4: Essayer d'autres propriétés Phantom
+                        else if (suiProvider.address) {
+                            console.log('Adresse trouvée dans address');
+                            userAddress = suiProvider.address;
+                            userApproved = true;
+                            response = { address: userAddress, source: 'address' };
+                        }
+                        else {
+                            console.log('Aucune vraie adresse trouvée, mode temporaire');
                             throw requestError;
                         }
                     }
@@ -643,17 +688,35 @@
                     
                     console.log('Erreur technique Phantom détectée (type:', error.constructor.name, ')');
                     
-                    // Auto-récupération pour toutes les erreurs techniques internes de Phantom
-                    console.log('Auto-récupération: erreur technique interne, génération d\'une session temporaire');
+                    // ESSAYER DE RÉCUPÉRER LA VRAIE ADRESSE avant de créer une fausse
+                    let realAddress = null;
                     
-                    // Mode de récupération automatique
-                    userAddress = '0x' + Math.random().toString(16).substring(2, 42);
-                    console.log('Mode de récupération automatique activé avec adresse temporaire:', userAddress);
+                    // Recherche approfondie de l'adresse réelle
+                    if (suiProvider.publicKey) {
+                        realAddress = suiProvider.publicKey.toString();
+                        console.log('✅ Vraie adresse récupérée depuis publicKey:', realAddress);
+                    } else if (suiProvider.address) {
+                        realAddress = suiProvider.address;
+                        console.log('✅ Vraie adresse récupérée depuis address:', realAddress);
+                    } else if (suiProvider.account?.address) {
+                        realAddress = suiProvider.account.address;
+                        console.log('✅ Vraie adresse récupérée depuis account:', realAddress);
+                    } else if (window.phantom._sui?.address) {
+                        realAddress = window.phantom._sui.address;
+                        console.log('✅ Vraie adresse récupérée depuis _sui:', realAddress);
+                    }
                     
-                    // Avertissement discret dans la console seulement
-                    console.warn('⚠️ Connexion établie en mode récupération à cause d\'un bug technique de Phantom');
-                    
-                    return { address: userAddress, mode: 'auto_recovery' };
+                    if (realAddress) {
+                        userAddress = realAddress;
+                        console.log('🎉 Récupération réussie de la vraie adresse Phantom:', userAddress);
+                        return { address: userAddress, mode: 'real_recovery' };
+                    } else {
+                        // Seulement en dernier recours
+                        console.warn('⚠️ Impossible de récupérer la vraie adresse, mode temporaire');
+                        userAddress = 'TEMP_' + Math.random().toString(16).substring(2, 20);
+                        console.log('Mode temporaire activé:', userAddress);
+                        return { address: userAddress, mode: 'temp_recovery' };
+                    }
                 }
                 
                 if (error.code === 4001 || error.message.includes('User rejected') || error.message.includes('rejected')) {
