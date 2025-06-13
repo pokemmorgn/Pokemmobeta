@@ -298,7 +298,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.0.0 - Web App Integration
+      v4.1.0 - Web Fallback Fix
     </div>
     
     <div class="main-card">
@@ -624,13 +624,72 @@ Our code successfully detected Slush via postMessage but the extension cannot re
           }
         }
 
-        // Recherche ULTRA-SPÉCIALISÉE pour Slush - simplifié car on utilise maintenant le Web App
+        // Recherche ULTRA-SPÉCIALISÉE pour Slush - Web App fallback
         if (!isInstalled && config.id === 'slush') {
-          console.log('🌊 Slush extension not found, will use Web App as fallback');
-          // Marquer comme "installé" pour permettre la connexion via Web App
-          provider = { type: 'web-app' };
+          console.log('🌊 Slush extension not found, enabling Web App fallback');
+          // Créer un provider Web App
+          provider = { 
+            type: 'web-app',
+            connect: async () => {
+              console.log('🌊 Using Slush Web App fallback');
+              
+              return new Promise((resolve, reject) => {
+                // Créer une popup centrée pour Slush Web
+                const popup = window.open(
+                  'https://slush.app/connect?origin=' + encodeURIComponent(window.location.origin),
+                  'slush-connect',
+                  'width=420,height=600,resizable=yes,scrollbars=yes,status=yes,left=' + 
+                  (window.screen.width/2 - 210) + ',top=' + (window.screen.height/2 - 300)
+                );
+                
+                if (!popup) {
+                  reject(new Error('❌ Popup bloqué. Autorisez les popups pour ce site et réessayez.'));
+                  return;
+                }
+                
+                // Écouter les messages de la popup
+                const messageHandler = (event) => {
+                  if (event.origin !== 'https://slush.app') return;
+                  
+                  console.log('🌊 Message from Slush Web:', event.data);
+                  
+                  if (event.data && event.data.type === 'WALLET_CONNECTED') {
+                    window.removeEventListener('message', messageHandler);
+                    popup.close();
+                    resolve(event.data.address || event.data.account || 'Connected via Slush Web');
+                  }
+                  
+                  if (event.data && event.data.type === 'WALLET_ERROR') {
+                    window.removeEventListener('message', messageHandler);
+                    popup.close();
+                    reject(new Error(event.data.message || 'Connection cancelled'));
+                  }
+                };
+                
+                window.addEventListener('message', messageHandler);
+                
+                // Timeout après 5 minutes
+                setTimeout(() => {
+                  if (!popup.closed) {
+                    popup.close();
+                    window.removeEventListener('message', messageHandler);
+                    reject(new Error('⏰ Connection timeout - popup closed'));
+                  }
+                }, 300000);
+                
+                // Vérifier si la popup est fermée manuellement
+                const checkClosed = setInterval(() => {
+                  if (popup.closed) {
+                    clearInterval(checkClosed);
+                    window.removeEventListener('message', messageHandler);
+                    reject(new Error('❌ Popup fermée par l\'utilisateur'));
+                  }
+                }, 1000);
+              });
+            }
+          };
           isInstalled = true;
-          detectedVia = 'Web App fallback (no extension needed)';
+          detectedVia = 'Web App fallback (slush.app)';
         }
 
         // Recherche spéciale pour Phantom (peut être dans window.ethereum si multichain)
