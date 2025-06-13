@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SUI Wallet Detection & Connection</title>
+  <title>Modern SUI Wallet Detection</title>
   <style>
     body { 
       background: #181c24; 
@@ -12,7 +12,7 @@
       line-height: 1.6;
     }
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
     h1 {
@@ -34,7 +34,8 @@
       background: #6366f1; 
       color: white; 
       cursor: pointer;
-      min-width: 200px;
+      min-width: 250px;
+      display: block;
     }
     .wallet-btn:hover:not(:disabled) { 
       background: #5856eb; 
@@ -53,8 +54,10 @@
       padding: 15px;
       margin: 10px 0;
       font-family: monospace;
-      font-size: 0.9em;
+      font-size: 0.85em;
       white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
     }
     .success { 
       background: #065f46; 
@@ -70,6 +73,13 @@
       border-radius: 8px;
       margin: 10px 0;
     }
+    .info {
+      background: #1e40af;
+      color: #dbeafe;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
     .address {
       word-break: break-all;
       font-family: monospace;
@@ -78,15 +88,15 @@
 </head>
 <body>
   <div class="container">
-    <h1>🔍 SUI Wallet Detection & Connection</h1>
+    <h1>🔍 Modern SUI Wallet Detection</h1>
     
     <div class="section">
-      <h2>🔧 Debug Information</h2>
+      <h2>🔧 Complete Debug Information</h2>
       <div id="debug-info" class="debug-info"></div>
     </div>
 
     <div class="section">
-      <h2>👛 Available Wallets</h2>
+      <h2>👛 Detected Wallets</h2>
       <div id="wallets"></div>
     </div>
 
@@ -101,161 +111,204 @@
     const walletsDiv = document.getElementById('wallets');
     const statusDiv = document.getElementById('status');
 
-    // Function pour afficher les informations de debug
+    // Function pour debug complet
     function updateDebugInfo() {
-      const walletObjects = {
-        // Phantom
-        'window.phantom': !!window.phantom,
-        'window.phantom.sui': !!(window.phantom && window.phantom.sui),
-        'window.phantom.solana': !!(window.phantom && window.phantom.solana),
-        'window.phantom.ethereum': !!(window.phantom && window.phantom.ethereum),
-        
-        // Slush/SUI Wallet
-        'window.suiWallet': !!window.suiWallet,
-        'window.slush': !!window.slush,
-        'window.slushWallet': !!window.slushWallet,
-        
-        // Autres wallets SUI
-        'window.martian': !!window.martian,
-        'window.ethosWallet': !!window.ethosWallet,
-        'window.suiet': !!window.suiet,
-        'window.nightly': !!window.nightly,
-        
-        // Recherche générale
-        'Object.keys(window).filter(k => k.includes("sui"))': Object.keys(window).filter(k => k.toLowerCase().includes('sui')),
-        'Object.keys(window).filter(k => k.includes("phantom"))': Object.keys(window).filter(k => k.toLowerCase().includes('phantom')),
-        'Object.keys(window).filter(k => k.includes("wallet"))': Object.keys(window).filter(k => k.toLowerCase().includes('wallet')),
+      const debugInfo = {
+        // 1. Objets window basiques
+        windowObjects: {
+          'window.phantom': !!window.phantom,
+          'window.suiWallet': !!window.suiWallet,
+          'window.slush': !!window.slush,
+          'window.slushWallet': !!window.slushWallet,
+          'window.martian': !!window.martian,
+          'window.ethosWallet': !!window.ethosWallet,
+          'window.suiet': !!window.suiet,
+          'window.nightly': !!window.nightly,
+        },
+
+        // 2. Recherche exhaustive d'objets wallet
+        walletKeywords: Object.keys(window).filter(key => 
+          key.toLowerCase().includes('wallet') || 
+          key.toLowerCase().includes('sui') ||
+          key.toLowerCase().includes('phantom') ||
+          key.toLowerCase().includes('slush')
+        ),
+
+        // 3. Wallet Standard (protocole moderne)
+        walletStandard: {
+          'window.wallet': !!window.wallet,
+          'window.wallets': !!window.wallets,
+          'navigator.wallet': !!navigator.wallet,
+        },
+
+        // 4. Event-based detection
+        events: {
+          'wallet-standard:register-wallet event support': 'window' in globalThis && 'addEventListener' in window,
+        },
       };
 
-      // Debug avancé pour Phantom
+      // 5. Debug spécifique pour chaque wallet détecté
       if (window.phantom) {
-        walletObjects['phantom methods'] = Object.getOwnPropertyNames(window.phantom);
-        walletObjects['phantom prototype'] = Object.getOwnPropertyNames(Object.getPrototypeOf(window.phantom));
-        
-        // Vérifier les propriétés spécifiques
-        if (window.phantom.sui) {
-          walletObjects['phantom.sui methods'] = Object.getOwnPropertyNames(window.phantom.sui);
-        }
-        if (window.phantom.request) {
-          walletObjects['phantom.request available'] = 'YES';
-        }
-        if (window.phantom.connect) {
-          walletObjects['phantom.connect available'] = 'YES';
-        }
+        debugInfo.phantom = {
+          methods: Object.getOwnPropertyNames(window.phantom),
+          sui: !!window.phantom.sui,
+          suiMethods: window.phantom.sui ? Object.getOwnPropertyNames(window.phantom.sui) : 'N/A',
+          request: typeof window.phantom.request,
+          connect: typeof window.phantom.connect,
+          isPhantom: window.phantom.isPhantom,
+        };
       }
 
-      debugDiv.textContent = JSON.stringify(walletObjects, null, 2);
+      if (window.suiWallet) {
+        debugInfo.suiWallet = {
+          methods: Object.getOwnPropertyNames(window.suiWallet),
+          connect: typeof window.suiWallet.connect,
+          isSlush: window.suiWallet.isSlush || window.suiWallet.name === 'Slush',
+        };
+      }
+
+      // 6. Recherche d'autres propriétés importantes
+      debugInfo.otherImportant = {
+        'window.sui': !!window.sui,
+        'window.slushApp': !!window.slushApp,
+        'document.querySelector([data-wallet])': !!document.querySelector('[data-wallet]'),
+      };
+
+      debugDiv.textContent = JSON.stringify(debugInfo, null, 2);
     }
 
-    // Configurations des wallets avec différentes approches de détection
+    // Configuration avancée des wallets
     const suiWallets = [
       {
-        name: "Phantom (SUI)",
-        key: "phantom-sui",
+        name: "Slush Wallet (Détection avancée)",
+        key: "slush-advanced",
         detector: () => {
-          // Vérifier les différentes façons dont Phantom peut être exposé
-          if (window.phantom) {
-            // Vérifier si SUI est supporté dans Phantom
-            return window.phantom;
-          }
-          return null;
+          // Multiples façons de détecter Slush
+          return window.suiWallet || 
+                 window.slush || 
+                 window.slushWallet ||
+                 (window.sui && window.sui.wallet) ||
+                 // Recherche par nom dans les objets disponibles
+                 Object.values(window).find(obj => 
+                   obj && typeof obj === 'object' && 
+                   (obj.name === 'Slush' || obj.name === 'Sui Wallet')
+                 );
         },
+        connect: async function() {
+          const provider = this.detector();
+          if (!provider) throw new Error("Slush Wallet not found");
+          
+          // Essayer différentes APIs
+          try {
+            if (provider.connect) {
+              const result = await provider.connect();
+              return result.accounts?.[0] || result.address || result;
+            }
+            if (provider.requestConnection) {
+              const result = await provider.requestConnection();
+              return result.accounts?.[0] || result.address || result;
+            }
+            if (provider.enable) {
+              const result = await provider.enable();
+              return result.accounts?.[0] || result.address || result;
+            }
+            throw new Error("No connect method found");
+          } catch (error) {
+            throw new Error(`Slush connection failed: ${error.message}`);
+          }
+        }
+      },
+      {
+        name: "Phantom (Tous réseaux)",
+        key: "phantom-all",
+        detector: () => window.phantom,
         connect: async function() {
           const provider = this.detector();
           if (!provider) throw new Error("Phantom not found");
           
-          // Essayer différentes méthodes d'API Phantom pour SUI
           try {
-            // Méthode 1: API directe SUI (si disponible)
-            if (provider.sui && provider.sui.connect) {
-              const result = await provider.sui.connect();
-              return result.accounts?.[0] || result.address || result.publicKey;
-            }
-            
-            // Méthode 2: API request générique
-            if (provider.request) {
-              try {
-                const result = await provider.request({ 
-                  method: 'sui_connect',
-                  params: {} 
-                });
-                return result.accounts?.[0] || result.address || result;
-              } catch (e) {
-                // Si sui_connect ne fonctionne pas, essayer connect
-                const result = await provider.request({ 
-                  method: 'connect',
-                  params: { chain: 'sui' }
-                });
-                return result.accounts?.[0] || result.address || result;
-              }
-            }
-            
-            // Méthode 3: API connect standard avec chaîne
+            // Pour Phantom, essayons juste de connecter normalement
+            // Phantom gère automatiquement les réseaux supportés
             if (provider.connect) {
               const result = await provider.connect({ onlyIfTrusted: false });
-              return result.accounts?.[0] || result.address || result.publicKey;
+              return result.publicKey?.toString() || result.accounts?.[0] || 'Connected to Phantom';
             }
-            
-            throw new Error("No compatible SUI API found in Phantom");
-            
+            throw new Error("No connect method");
           } catch (error) {
-            throw new Error(`Phantom SUI connection failed: ${error.message}`);
+            throw new Error(`Phantom connection failed: ${error.message}`);
           }
         }
       },
       {
-        name: "Slush Wallet (ex-Sui Wallet)",
-        key: "slush",
-        detector: () => window.suiWallet || window.slush || window.slushWallet,
+        name: "Detection par Event Listener",
+        key: "event-based",
+        detector: () => {
+          // Cette méthode utilise les événements pour détecter les wallets
+          return typeof window.addEventListener === 'function';
+        },
         connect: async function() {
-          const provider = this.detector();
-          if (!provider) throw new Error("Slush Wallet not found");
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
+          return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error("Wallet detection timeout"));
+            }, 5000);
+
+            // Écouter les événements de wallets
+            const handleWalletEvent = (event) => {
+              console.log('Wallet event detected:', event);
+              clearTimeout(timeout);
+              resolve("Wallet detected via events - check console");
+            };
+
+            // Différents événements possibles
+            window.addEventListener('wallet-standard:register-wallet', handleWalletEvent);
+            window.addEventListener('sui-wallet:register', handleWalletEvent);
+            window.addEventListener('slush:register', handleWalletEvent);
+
+            // Déclencher la détection
+            window.dispatchEvent(new CustomEvent('wallet-standard:app-ready'));
+          });
         }
       },
       {
-        name: "Martian Wallet",
-        key: "martian",
-        detector: () => window.martian,
+        name: "Recherche dynamique dans Window",
+        key: "dynamic-search",
+        detector: () => true, // Toujours disponible
         connect: async function() {
-          const provider = this.detector();
-          if (!provider) throw new Error("Martian Wallet not found");
-          const result = await provider.connect();
-          return result.address || result.accounts?.[0] || result;
-        }
-      },
-      {
-        name: "Ethos Wallet",
-        key: "ethos",
-        detector: () => window.ethosWallet,
-        connect: async function() {
-          const provider = this.detector();
-          if (!provider) throw new Error("Ethos Wallet not found");
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
-        }
-      },
-      {
-        name: "Suiet Wallet",
-        key: "suiet",
-        detector: () => window.suiet,
-        connect: async function() {
-          const provider = this.detector();
-          if (!provider) throw new Error("Suiet Wallet not found");
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
-        }
-      },
-      {
-        name: "Nightly Wallet",
-        key: "nightly",
-        detector: () => window.nightly,
-        connect: async function() {
-          const provider = this.detector();
-          if (!provider) throw new Error("Nightly Wallet not found");
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
+          // Rechercher dynamiquement les objets wallet
+          const walletObjects = [];
+          
+          for (const key in window) {
+            try {
+              const obj = window[key];
+              if (obj && typeof obj === 'object' && 
+                  (typeof obj.connect === 'function' || 
+                   typeof obj.enable === 'function' ||
+                   typeof obj.request === 'function')) {
+                
+                walletObjects.push({ key, obj, hasConnect: !!obj.connect });
+              }
+            } catch (e) {
+              // Ignorer les erreurs d'accès
+            }
+          }
+
+          if (walletObjects.length === 0) {
+            throw new Error("No wallet objects with connect methods found");
+          }
+
+          // Essayer de connecter avec le premier qui fonctionne
+          for (const { key, obj } of walletObjects) {
+            try {
+              if (obj.connect) {
+                const result = await obj.connect();
+                return `Connected via ${key}: ${JSON.stringify(result)}`;
+              }
+            } catch (e) {
+              console.log(`Failed to connect via ${key}:`, e);
+            }
+          }
+
+          return `Found ${walletObjects.length} potential wallet objects: ${walletObjects.map(w => w.key).join(', ')}`;
         }
       }
     ];
@@ -266,10 +319,10 @@
 
     function createWalletButton(wallet) {
       const btn = document.createElement('button');
-      const provider = wallet.detector();
+      const isDetected = wallet.detector();
       
-      if (provider) {
-        btn.textContent = `✅ Connect ${wallet.name}`;
+      if (isDetected) {
+        btn.textContent = `✅ Test ${wallet.name}`;
         btn.className = 'wallet-btn';
       } else {
         btn.textContent = `❌ ${wallet.name} (Not Detected)`;
@@ -278,22 +331,17 @@
       }
       
       btn.onclick = async () => {
-        if (!provider) {
-          updateStatus(`${wallet.name} is not detected. Please make sure it's installed and enabled.`, 'error');
-          return;
-        }
-
         btn.disabled = true;
         const originalText = btn.textContent;
-        btn.textContent = '⏳ Connecting...';
-        updateStatus('Connecting to wallet...', 'info');
+        btn.textContent = '⏳ Testing...';
+        updateStatus('Testing wallet connection...', 'info');
 
         try {
-          const address = await wallet.connect();
-          updateStatus(`🎉 Connected to ${wallet.name}!<br><div class="address">Address: ${address}</div>`, 'success');
+          const result = await wallet.connect();
+          updateStatus(`🎉 Success with ${wallet.name}!<br><div class="address">${result}</div>`, 'success');
         } catch (error) {
-          console.error('Connection error:', error);
-          updateStatus(`❌ Failed to connect: ${error.message}`, 'error');
+          console.error(`${wallet.name} error:`, error);
+          updateStatus(`❌ ${wallet.name} failed: ${error.message}`, 'error');
         } finally {
           btn.disabled = false;
           btn.textContent = originalText;
@@ -303,34 +351,20 @@
       return btn;
     }
 
-    // Initialisation
+    // Fonction d'initialisation
     function init() {
       updateDebugInfo();
       
-      // Créer les boutons de wallet
+      // Créer les boutons
       suiWallets.forEach(wallet => {
         walletsDiv.appendChild(createWalletButton(wallet));
       });
 
-      // Vérifier si des wallets sont disponibles
-      const availableWallets = suiWallets.filter(w => w.detector());
-      if (availableWallets.length === 0) {
-        updateStatus('❌ No SUI wallets detected. Please install and enable a SUI wallet.', 'error');
-      } else {
-        updateStatus(`✅ ${availableWallets.length} SUI wallet(s) detected: ${availableWallets.map(w => w.name).join(', ')}`, 'success');
-      }
+      // Status initial
+      updateStatus('🔍 Wallet detection completed. Check debug info and try the tests above.', 'info');
     }
 
-    // Attendre que les wallets soient injectés
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(init, 1000); // Attendre 1s pour l'injection des wallets
-      });
-    } else {
-      setTimeout(init, 1000);
-    }
-
-    // Bouton pour actualiser la détection
+    // Bouton refresh
     const refreshBtn = document.createElement('button');
     refreshBtn.textContent = '🔄 Refresh Detection';
     refreshBtn.className = 'wallet-btn';
@@ -338,7 +372,17 @@
       walletsDiv.innerHTML = '';
       init();
     };
-    walletsDiv.appendChild(refreshBtn);
+
+    // Attendre le chargement et l'injection des wallets
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        walletsDiv.appendChild(refreshBtn);
+        setTimeout(init, 1500); // Attendre plus longtemps
+      });
+    } else {
+      walletsDiv.appendChild(refreshBtn);
+      setTimeout(init, 1500);
+    }
   </script>
 </body>
 </html>
