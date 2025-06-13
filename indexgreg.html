@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.0.6 - Phantom Only
+      v4.0.0 - Phantom Only
     </div>
     
     <div class="main-card">
@@ -186,18 +186,23 @@
             console.log('🔧 SUI exists! Details:', {
               sui: provider.sui,
               suiConnect: provider.sui.connect,
-              suiConnectType: typeof provider.sui.connect,
+              suiRequestAccount: provider.sui.requestAccount,
               allSuiProps: Object.getOwnPropertyNames(provider.sui),
               allSuiKeys: Object.keys(provider.sui)
             });
             
-            if (provider.sui.connect) {
-              console.log('🔧 Using provider.sui.connect() - SUI ONLY');
+            if (provider.sui.requestAccount) {
+              console.log('🔧 Using provider.sui.requestAccount() - SUI METHOD FOUND!');
+              const result = await provider.sui.requestAccount();
+              console.log('🔧 SUI RequestAccount result:', result);
+              return result.accounts?.[0] || result.address || JSON.stringify(result);
+            } else if (provider.sui.connect) {
+              console.log('🔧 Using provider.sui.connect() - SUI FALLBACK');
               const result = await provider.sui.connect();
               console.log('🔧 SUI Connect result:', result);
               return result.accounts?.[0] || result.address || JSON.stringify(result);
             } else {
-              throw new Error(`provider.sui exists but has no connect method! SUI methods: ${Object.getOwnPropertyNames(provider.sui).join(', ')}`);
+              throw new Error(`provider.sui exists but has no requestAccount or connect method! SUI methods: ${Object.getOwnPropertyNames(provider.sui).join(', ')}`);
             }
           }
           
