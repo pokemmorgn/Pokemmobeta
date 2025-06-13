@@ -559,9 +559,19 @@
             console.log('Déconnexion complète effectuée');
         }
 
-        // Fonction de connexion améliorée avec retry intelligent et plus agressif
+        // Fonction de connexion améliorée avec retry intelligent et limite stricte
         async function connectPhantomWithRetry() {
             connectionAttempts++;
+            
+            // Protection contre la boucle infinie
+            if (connectionAttempts > maxRetries) {
+                console.log('❌ Limite de tentatives dépassée');
+                loading.style.display = 'none';
+                connectBtn.style.display = 'block';
+                showConnectionStatus('❌ Échec après 5 tentatives. Phantom Sui très instable.', 'error');
+                retryBtn.style.display = 'block';
+                return;
+            }
             
             try {
                 showConnectionStatus(`🔄 Tentative ${connectionAttempts}/${maxRetries} - Phantom Sui peut être instable...`, 'warning');
@@ -579,28 +589,33 @@
                     connectionState.isConnected = true;
                     connectionState.address = userAddress;
                     connectionState.mode = result.mode || 'normal';
-                    connectionState.attempts = connectionAttempts;
+                    connectionState.attempts = 0; // Réinitialiser
                     saveConnectionState();
                     
                     showConnectedState();
                     return result;
                     
                 } else if (result.address && result.address.startsWith('TEMP_')) {
-                    console.log('⚠️ Adresse temporaire obtenue, retry si possible');
+                    console.log(`⚠️ Adresse temporaire obtenue (tentative ${connectionAttempts}/${maxRetries})`);
                     
-                    // Si on a une adresse temporaire et qu'on peut encore retry
+                    // IMPORTANT: Vérifier la limite AVANT de retry
                     if (connectionAttempts < maxRetries) {
-                        showConnectionStatus(`⚠️ Adresse temporaire détectée. Nouvelle tentative... (${connectionAttempts}/${maxRetries})`, 'warning');
+                        const waitTime = Math.min(1500 + (connectionAttempts * 500), 4000);
+                        showConnectionStatus(`⚠️ Adresse temporaire. Retry ${connectionAttempts + 1}/${maxRetries} dans ${waitTime/1000}s...`, 'warning');
                         
                         setTimeout(() => {
                             connectPhantomWithRetry();
-                        }, 1500);
+                        }, waitTime);
                         return;
                     } else {
                         // Accepter l'adresse temporaire après tous les retries
+                        console.log('⚠️ Limite atteinte, acceptation de l\'adresse temporaire');
+                        connectionAttempts = 0; // Réinitialiser
+                        
                         connectionState.isConnected = true;
                         connectionState.address = userAddress;
                         connectionState.mode = result.mode || 'temp';
+                        connectionState.attempts = 0;
                         saveConnectionState();
                         
                         showConnectedState();
@@ -611,38 +626,35 @@
                 return result;
                 
             } catch (error) {
-                console.error(`❌ Erreur tentative ${connectionAttempts}:`, error);
+                console.error(`❌ Erreur tentative ${connectionAttempts}/${maxRetries}:`, error);
                 
-                // Retry pour toute erreur Phantom si on n'a pas atteint la limite
+                // Retry pour toute erreur Phantom SEULEMENT si on n'a pas atteint la limite
                 if (connectionAttempts < maxRetries && 
                     (error.message.includes('Unexpected error') || 
                      error.message.includes('$e') ||
                      error.message.includes('Cannot read properties'))) {
                     
-                    const waitTime = Math.min(2000 + (connectionAttempts * 1000), 5000); // Augmenter le délai progressivement
-                    showConnectionStatus(`🔄 Erreur Phantom détectée. Retry dans ${waitTime/1000}s... (${connectionAttempts}/${maxRetries})`, 'warning');
+                    const waitTime = Math.min(2000 + (connectionAttempts * 1000), 5000);
+                    showConnectionStatus(`🔄 Erreur Phantom. Retry ${connectionAttempts + 1}/${maxRetries} dans ${waitTime/1000}s...`, 'warning');
                     
                     setTimeout(() => {
                         connectPhantomWithRetry();
                     }, waitTime);
                     
                 } else {
-                    // Échec définitif
+                    // Échec définitif - RÉINITIALISER le compteur
+                    connectionAttempts = 0;
                     loading.style.display = 'none';
                     connectBtn.style.display = 'block';
                     
                     if (connectionAttempts >= maxRetries) {
-                        showConnectionStatus('❌ Phantom Sui très instable. Plusieurs échecs consécutifs.', 'error');
-                        retryBtn.style.display = 'block';
+                        showConnectionStatus('❌ Phantom Sui très instable. Échec après 5 tentatives.', 'error');
                     } else {
                         let errorMessage = getErrorMessage(error);
                         showConnectionStatus(`❌ ${errorMessage}`, 'error');
-                        
-                        if (error.message.includes('Unexpected error')) {
-                            retryBtn.style.display = 'block';
-                        }
                     }
                     
+                    retryBtn.style.display = 'block';
                     throw error;
                 }
             }
@@ -785,14 +797,17 @@
         });
 
         retryBtn.addEventListener('click', async () => {
-            connectionAttempts = 0; // Réinitialiser pour une nouvelle série de tentatives
+            console.log('🔄 Retry manuel déclenché');
+            connectionAttempts = 0; // IMPORTANT: Réinitialiser complètement le compteur
             retryBtn.style.display = 'none';
             loading.style.display = 'block';
+            connectionStatus.className = 'connection-status'; // Effacer les anciens messages
             
             try {
                 await connectPhantomWithRetry();
             } catch (error) {
                 // L'erreur est déjà gérée
+                console.log('Retry manuel échoué:', error.message);
             }
         });
 
