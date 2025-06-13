@@ -374,7 +374,61 @@
             lastConnected: null,
             mode: null
         };
+// AJOUTER CES FONCTIONS EN PREMIER, JUSTE APRÈS LES VARIABLES GLOBALES
 
+// Fonction de logging sécuritaire (DOIT ÊTRE EN PREMIER)
+function logSecurityEvent(eventType, details) {
+    const securityLog = {
+        timestamp: new Date().toISOString(),
+        type: eventType,
+        details: details,
+        userAgent: navigator.userAgent,
+        url: window.location.href
+    };
+    
+    console.log(`[SECURITY] ${eventType}:`, securityLog);
+    
+    // En production, envoyer vers votre serveur de logs
+    // sendToSecurityServer(securityLog);
+}
+
+// Créer une instance de SecurityMonitor simple en premier
+const securityMonitor = {
+    logError: function(type, details) {
+        logSecurityEvent(type, details);
+    },
+    triggerAlert: function(alertType, data) {
+        console.warn(`🚨 ALERTE SÉCURITÉ [${alertType}]:`, data);
+    },
+    getStatus: function() {
+        return { status: 'active', timestamp: Date.now() };
+    }
+};
+
+// Créer une instance de secureStorage simple
+const secureStorage = {
+    save: function(data) {
+        try {
+            localStorage.setItem('phantom_sui_secure', JSON.stringify(data));
+            return true;
+        } catch (e) {
+            console.error('Erreur sauvegarde:', e);
+            return false;
+        }
+    },
+    load: function() {
+        try {
+            const data = localStorage.getItem('phantom_sui_secure');
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('Erreur chargement:', e);
+            return null;
+        }
+    },
+    clear: function() {
+        localStorage.removeItem('phantom_sui_secure');
+    }
+};
         // Fonction de validation d'adresse Sui
         function isValidSuiAddress(address) {
             if (!address || typeof address !== 'string') {
