@@ -1,0 +1,17 @@
+{
+  "name": "pokemmobeta",
+  "version": "1.0.0",
+  "description": "MMO Pokémon-like with Colyseus Cloud",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "colyseus": "^0.15.20",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@colyseus/cloud": "^0.4.29",
+    "@colyseus/tools": "^0.15.20"
+  }
+}
