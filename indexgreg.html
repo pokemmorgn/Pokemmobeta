@@ -445,37 +445,58 @@
 
             console.log('Phantom détecté:', window.phantom);
             console.log('Phantom.sui disponible:', !!window.phantom.sui);
-            console.log('Méthodes disponibles:', Object.getOwnPropertyNames(window.phantom.sui || {}));
-
+            
             // Vérifier le support de Sui
             if (!window.phantom.sui) {
                 throw new Error('Le support Sui n\'est pas activé dans Phantom. Veuillez activer Sui dans les paramètres de Phantom.');
             }
 
             const suiProvider = window.phantom.sui;
+            console.log('Méthodes disponibles:', Object.getOwnPropertyNames(suiProvider));
 
             try {
-                console.log('Tentative de connexion...');
+                console.log('Tentative de connexion avec Wallet Standard...');
                 
-                // Essayer différentes méthodes de connexion selon l'API Phantom
                 let response;
                 
-                if (typeof suiProvider.connect === 'function') {
-                    // Méthode standard
+                // Méthode 1: Wallet Standard (recommandé pour Sui)
+                if (suiProvider.features && suiProvider.features['standard:connect']) {
+                    console.log('Utilisation de standard:connect');
+                    response = await suiProvider.features['standard:connect'].connect();
+                } 
+                // Méthode 2: API directe
+                else if (typeof suiProvider.connect === 'function') {
+                    console.log('Utilisation de connect()');
                     response = await suiProvider.connect();
-                } else if (typeof suiProvider.requestPermissions === 'function') {
-                    // API alternative
+                }
+                // Méthode 3: Request permissions
+                else if (typeof suiProvider.requestPermissions === 'function') {
+                    console.log('Utilisation de requestPermissions');
                     response = await suiProvider.requestPermissions(['view_account']);
-                } else if (typeof suiProvider.enable === 'function') {
-                    // Ancienne API
+                }
+                // Méthode 4: Enable
+                else if (typeof suiProvider.enable === 'function') {
+                    console.log('Utilisation de enable');
                     response = await suiProvider.enable();
-                } else {
-                    // Essayer l'API Wallet Standard
-                    if (window.suiWallet) {
-                        response = await window.suiWallet.connect();
+                }
+                // Méthode 5: Rechercher dans window.wallets (Wallet Standard global)
+                else if (window.wallets) {
+                    console.log('Tentative avec window.wallets');
+                    const phantomWallet = window.wallets.find(wallet => 
+                        wallet.name === 'Phantom' || wallet.name.toLowerCase().includes('phantom')
+                    );
+                    if (phantomWallet && phantomWallet.features['standard:connect']) {
+                        response = await phantomWallet.features['standard:connect'].connect();
                     } else {
-                        throw new Error('Aucune méthode de connexion trouvée. API: ' + Object.getOwnPropertyNames(suiProvider).join(', '));
+                        throw new Error('Phantom Wallet Standard non trouvé');
                     }
+                }
+                else {
+                    // Debug: montrer ce qui est disponible
+                    const availableMethods = Object.getOwnPropertyNames(suiProvider).filter(prop => 
+                        typeof suiProvider[prop] === 'function'
+                    );
+                    throw new Error(`Aucune méthode de connexion trouvée. Méthodes disponibles: ${availableMethods.join(', ')}`);
                 }
                 
                 console.log('Réponse de connexion:', response);
@@ -485,12 +506,18 @@
                     userAddress = response.accounts[0].address;
                 } else if (response && response.address) {
                     userAddress = response.address;
-                } else if (suiProvider.getAccount) {
-                    // Essayer de récupérer le compte après connexion
-                    const account = await suiProvider.getAccount();
-                    userAddress = account.address;
+                } else if (response && response.publicKey) {
+                    userAddress = response.publicKey.toString();
                 } else {
-                    throw new Error('Impossible de récupérer l\'adresse du compte');
+                    // Essayer de récupérer le compte après connexion
+                    if (suiProvider.getAccount) {
+                        const account = await suiProvider.getAccount();
+                        userAddress = account.address;
+                    } else if (suiProvider.accounts && suiProvider.accounts.length > 0) {
+                        userAddress = suiProvider.accounts[0].address;
+                    } else {
+                        throw new Error('Impossible de récupérer l\'adresse du compte. Structure de réponse: ' + JSON.stringify(response));
+                    }
                 }
                 
                 console.log('Connexion réussie:', {
@@ -505,7 +532,7 @@
                 if (error.code === 4001 || error.message.includes('User rejected') || error.message.includes('rejected')) {
                     throw new Error('Connexion refusée par l\'utilisateur');
                 } else if (error.message.includes('not a function')) {
-                    throw new Error('Version de Phantom incompatible ou API Sui non supportée. Méthodes disponibles: ' + Object.getOwnPropertyNames(suiProvider).join(', '));
+                    throw new Error('API Phantom incompatible. L\'intégration Sui est récente, vérifiez que vous avez la dernière version.');
                 }
                 throw error;
             }
