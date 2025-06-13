@@ -27,3 +27,5 @@ export function drawGame(player, others = {}) {
   ctx.textAlign = "center";
   ctx.fillText(player.name, player.x + player.size / 2, player.y - 10);
 }
+
+//
