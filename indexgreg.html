@@ -375,639 +375,49 @@
             mode: null
         };
 
-        // Fonction de validation d'adresse Sui
-        function isValidSuiAddress(address) {
-            if (!address || typeof address !== 'string') {
-                return false;
-            }
-            
-            // Vérifier le format d'adresse Sui
-            const suiAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-            return suiAddressRegex.test(address);
-        }
-
-        // Fonction de nettoyage et d'échappement des données
-        function sanitizeInput(input) {
-            if (typeof input !== 'string') return input;
-            
-            return input
-                .replace(/[<>]/g, '') // Supprimer les balises
-                .replace(/javascript:/gi, '') // Supprimer javascript:
-                .replace(/on\w+=/gi, '') // Supprimer les handlers d'événements
-                .trim();
-        }
-
-        // Protection contre les attaques de manipulation DOM
-        function secureUpdateDOM(element, content) {
-            if (!element) return;
-            
-            // Nettoyer le contenu avant mise à jour
-            const cleanContent = sanitizeInput(content);
-            
-            // Utiliser textContent au lieu de innerHTML pour éviter l'injection
-            element.textContent = cleanContent;
-            
-            console.log('🔒 DOM mis à jour de façon sécurisée');
-        }
-
-        // Détection d'activité suspecte
-        function detectSuspiciousActivity() {
-            const suspiciousPatterns = [
-                /script/i,
-                /javascript:/i,
-                /data:text\/html/i,
-                /<iframe/i,
-                /eval\(/i
-            ];
-            
-            const currentUrl = window.location.href;
-            const userAgent = navigator.userAgent;
-            
-            for (let pattern of suspiciousPatterns) {
-                if (pattern.test(currentUrl) || pattern.test(userAgent)) {
-                    console.error('🚨 ACTIVITÉ SUSPECTE DÉTECTÉE');
-                    logSecurityEvent('SUSPICIOUS_ACTIVITY', { url: currentUrl, userAgent });
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // Fonction de validation de connexion sécurisée
-        function validateConnection(address, source) {
-            console.log('🔒 Validation sécuritaire de la connexion...');
-            
-            // 1. Vérifier le format d'adresse
-            if (!isValidSuiAddress(address)) {
-                console.error('❌ Adresse invalide:', address);
-                throw new Error('Format d\'adresse invalide');
-            }
-            
-            // 2. Vérifier la source
-            const validSources = ['publicKey', 'address', 'account', '_accounts', 'requestAccount'];
-            if (source && !validSources.includes(source)) {
-                console.warn('⚠️ Source inconnue:', source);
-            }
-            
-            // 3. Vérifier la cohérence
-            if (address.startsWith('TEMP_') || address.startsWith('DEMO_')) {
-                console.error('❌ Adresse temporaire détectée');
-                throw new Error('Adresse temporaire non autorisée en production');
-            }
-            
-            console.log('✅ Validation réussie pour:', address);
-            return true;
-        }
-
-        // Système de rate limiting
-        class RateLimiter {
-            constructor() {
-                this.attempts = new Map();
-                this.maxAttempts = 5;
-                this.windowMs = 15 * 60 * 1000; // 15 minutes
-                this.lockoutMs = 30 * 60 * 1000; // 30 minutes de blocage
-            }
-
-            canAttempt(identifier = 'default') {
-                const now = Date.now();
-                const userAttempts = this.attempts.get(identifier) || { count: 0, firstAttempt: now, lockedUntil: 0 };
-
-                // Vérifier si l'utilisateur est bloqué
-                if (userAttempts.lockedUntil > now) {
-                    const remainingTime = Math.ceil((userAttempts.lockedUntil - now) / 60000);
-                    throw new Error(`Trop de tentatives. Réessayez dans ${remainingTime} minutes.`);
-                }
-
-                // Reset si la fenêtre de temps est dépassée
-                if (now - userAttempts.firstAttempt > this.windowMs) {
-                    userAttempts.count = 0;
-                    userAttempts.firstAttempt = now;
-                }
-
-                return userAttempts.count < this.maxAttempts;
-            }
-
-            recordAttempt(identifier = 'default', success = false) {
-                const now = Date.now();
-                const userAttempts = this.attempts.get(identifier) || { count: 0, firstAttempt: now, lockedUntil: 0 };
-
-                if (success) {
-                    // Reset lors du succès
-                    this.attempts.delete(identifier);
-                    logSecurityEvent('LOGIN_SUCCESS', { identifier });
-                } else {
-                    userAttempts.count++;
-                    
-                    if (userAttempts.count >= this.maxAttempts) {
-                        userAttempts.lockedUntil = now + this.lockoutMs;
-                        logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
-                            identifier, 
-                            attempts: userAttempts.count,
-                            lockedUntil: new Date(userAttempts.lockedUntil).toISOString()
-                        });
-                    }
-                    
-                    this.attempts.set(identifier, userAttempts);
-                    logSecurityEvent('LOGIN_ATTEMPT', { identifier, attempts: userAttempts.count });
-                }
-            }
-        }
-
-        const rateLimiter = new RateLimiter();
-
-        // Gestionnaire de stockage sécurisé
-        class SecureStorage {
-            constructor() {
-                this.storageKey = 'phantom_sui_secure';
-                this.encryptionKey = this.generateKey();
-            }
-
-            generateKey() {
-                // Clé basée sur les propriétés du navigateur (fingerprinting léger)
-                const browserData = [
-                    navigator.userAgent,
-                    navigator.language,
-                    screen.width + 'x' + screen.height,
-                    new Date().getTimezoneOffset()
-                ].join('|');
-                
-                return btoa(browserData).substring(0, 32);
-            }
-
-            encrypt(data) {
-                try {
-                    const jsonData = JSON.stringify(data);
-                    // Chiffrement simple (en production, utilisez crypto-js ou Web Crypto API)
-                    return btoa(unescape(encodeURIComponent(jsonData + '|' + this.encryptionKey)));
-                } catch (e) {
-                    console.error('Erreur chiffrement:', e);
-                    return null;
-                }
-            }
-
-            decrypt(encryptedData) {
-                try {
-                    const decoded = decodeURIComponent(escape(atob(encryptedData)));
-                    const parts = decoded.split('|');
-                    const data = parts.slice(0, -1).join('|');
-                    const key = parts[parts.length - 1];
-                    
-                    if (key !== this.encryptionKey) {
-                        logSecurityEvent('STORAGE_TAMPERING', { expectedKey: this.encryptionKey, receivedKey: key });
-                        return null;
-                    }
-                    
-                    return JSON.parse(data);
-                } catch (e) {
-                    console.error('Erreur déchiffrement:', e);
-                    return null;
-                }
-            }
-
-            save(data) {
-                const encrypted = this.encrypt(data);
-                if (encrypted) {
-                    localStorage.setItem(this.storageKey, encrypted);
-                    return true;
-                }
-                return false;
-            }
-
-            load() {
-                try {
-                    const encrypted = localStorage.getItem(this.storageKey);
-                    return encrypted ? this.decrypt(encrypted) : null;
-                } catch (e) {
-                    console.error('Erreur lecture stockage:', e);
-                    return null;
-                }
-            }
-
-            clear() {
-                localStorage.removeItem(this.storageKey);
-            }
-        }
-
         const connectBtn = document.getElementById('connectBtn');
         const loading = document.getElementById('loading');
         const walletInfo = document.getElementById('walletInfo');
         const walletAddress = document.getElementById('walletAddress');
 
-        // Système de monitoring en temps réel
-        class SecurityMonitor {
-            constructor() {
-                this.alerts = [];
-                this.metrics = {
-                    connections: 0,
-                    failures: 0,
-                    suspiciousActivity: 0,
-                    startTime: Date.now()
-                };
-                this.thresholds = {
-                    maxFailuresPerMinute: 10,
-                    maxConnectionsPerMinute: 20
-                };
-                this.init();
-            }
-
-            init() {
-                // Surveiller les erreurs globales
-                window.addEventListener('error', (e) => {
-                    this.logError('GLOBAL_ERROR', {
-                        message: e.message,
-                        filename: e.filename,
-                        lineno: e.lineno,
-                        stack: e.error?.stack
-                    });
-                });
-
-                // Surveiller les promesses rejetées
-                window.addEventListener('unhandledrejection', (e) => {
-                    this.logError('UNHANDLED_REJECTION', {
-                        reason: e.reason,
-                        promise: e.promise
-                    });
-                });
-
-                // Nettoyer les anciennes métriques toutes les minutes
-                setInterval(() => this.cleanupMetrics(), 60000);
-            }
-
-            logError(type, details) {
-                const errorLog = {
-                    timestamp: Date.now(),
-                    type,
-                    details,
-                    url: window.location.href,
-                    userAgent: navigator.userAgent
-                };
-
-                this.alerts.push(errorLog);
-                this.metrics.suspiciousActivity++;
-                
-                console.error(`[SECURITY MONITOR] ${type}:`, errorLog);
-                
-                // Alerter si trop d'erreurs
-                if (this.alerts.length > 5) {
-                    this.triggerAlert('HIGH_ERROR_RATE', { count: this.alerts.length });
-                }
-            }
-
-            recordConnection(success) {
-                if (success) {
-                    this.metrics.connections++;
-                } else {
-                    this.metrics.failures++;
-                }
-
-                // Vérifier les seuils
-                this.checkThresholds();
-            }
-
-            checkThresholds() {
-                const now = Date.now();
-                const oneMinuteAgo = now - 60000;
-
-                // Compter les événements de la dernière minute
-                const recentFailures = this.alerts.filter(a => a.timestamp > oneMinuteAgo).length;
-                
-                if (recentFailures > this.thresholds.maxFailuresPerMinute) {
-                    this.triggerAlert('RATE_THRESHOLD_EXCEEDED', {
-                        failures: recentFailures,
-                        threshold: this.thresholds.maxFailuresPerMinute
-                    });
-                }
-            }
-
-            triggerAlert(alertType, data) {
-                const alert = {
-                    type: alertType,
-                    timestamp: Date.now(),
-                    data,
-                    severity: this.getSeverity(alertType)
-                };
-
-                console.warn(`🚨 ALERTE SÉCURITÉ [${alert.severity}]:`, alert);
-                
-                // En production, envoyer vers votre système d'alerte
-                // this.sendToAlertSystem(alert);
-                
-                // Actions automatiques selon la gravité
-                if (alert.severity === 'CRITICAL') {
-                    this.emergencyLockdown();
-                }
-            }
-
-            getSeverity(alertType) {
-                const severityMap = {
-                    'HIGH_ERROR_RATE': 'HIGH',
-                    'RATE_THRESHOLD_EXCEEDED': 'CRITICAL',
-                    'STORAGE_TAMPERING': 'HIGH',
-                    'CLICKJACKING_ATTEMPT': 'MEDIUM',
-                    'SUSPICIOUS_ACTIVITY': 'HIGH'
-                };
-                return severityMap[alertType] || 'LOW';
-            }
-
-            emergencyLockdown() {
-                console.error('🚨 VERROUILLAGE D\'URGENCE ACTIVÉ');
-                
-                // Désactiver l'interface
-                const elements = document.querySelectorAll('button, input');
-                elements.forEach(el => el.disabled = true);
-                
-                // Afficher un message de sécurité
-                const securityBanner = document.createElement('div');
-                securityBanner.style.cssText = `
-                    position: fixed; top: 0; left: 0; right: 0; 
-                    background: #dc2626; color: white; 
-                    padding: 15px; text-align: center; 
-                    font-weight: bold; z-index: 10000;
-                `;
-                securityBanner.textContent = '🚨 Activité suspecte détectée - Application temporairement verrouillée';
-                document.body.appendChild(securityBanner);
-                
-                // Logger l'événement
-                logSecurityEvent('EMERGENCY_LOCKDOWN', { reason: 'Multiple security alerts' });
-            }
-
-            cleanupMetrics() {
-                const oneHourAgo = Date.now() - 3600000;
-                this.alerts = this.alerts.filter(a => a.timestamp > oneHourAgo);
-            }
-
-            getStatus() {
-                return {
-                    uptime: Date.now() - this.metrics.startTime,
-                    metrics: this.metrics,
-                    alertCount: this.alerts.length,
-                    lastAlert: this.alerts[this.alerts.length - 1]
-                };
-            }
-        }
-
-        // Validateur de transactions Sui
-        class SuiTransactionValidator {
-            constructor() {
-                this.trustedDomains = [
-                    'phantom.app',
-                    'sui.io',
-                    'mysten.labs'
-                ];
-                this.suspiciousPatterns = [
-                    /transfer.*all/i,
-                    /drain/i,
-                    /sweep/i,
-                    /approve.*max/i
-                ];
-            }
-
-            validateTransactionRequest(txData) {
-                const validation = {
-                    isValid: true,
-                    warnings: [],
-                    risks: [],
-                    recommendation: 'APPROVE'
-                };
-
-                // Vérifier l'origine
-                if (!this.isFromTrustedDomain(window.location.hostname)) {
-                    validation.warnings.push('Transaction initiée depuis un domaine non vérifié');
-                    validation.recommendation = 'REVIEW';
-                }
-
-                // Analyser le contenu de la transaction
-                if (txData && typeof txData === 'object') {
-                    const txString = JSON.stringify(txData).toLowerCase();
-                    
-                    // Rechercher des patterns suspects
-                    for (let pattern of this.suspiciousPatterns) {
-                        if (pattern.test(txString)) {
-                            validation.risks.push(`Pattern suspect détecté: ${pattern.source}`);
-                            validation.recommendation = 'REJECT';
-                            validation.isValid = false;
-                        }
-                    }
-
-                    // Vérifier les montants élevés (si applicable)
-                    if (this.hasHighValueTransfer(txData)) {
-                        validation.warnings.push('Transaction de montant élevé détectée');
-                        validation.recommendation = 'REVIEW';
-                    }
-                }
-
-                return validation;
-            }
-
-            isFromTrustedDomain(domain) {
-                return this.trustedDomains.some(trusted => 
-                    domain === trusted || domain.endsWith('.' + trusted)
-                );
-            }
-
-            hasHighValueTransfer(txData) {
-                // Logique pour détecter les transferts de valeur élevée
-                // À adapter selon votre contexte métier
-                const txString = JSON.stringify(txData);
-                const amounts = txString.match(/amount['":][\s]*(\d+)/gi);
-                
-                if (amounts) {
-                    return amounts.some(amount => {
-                        const value = parseInt(amount.match(/\d+/)[0]);
-                        return value > 1000000; // Exemple: plus de 1M d'unités
-                    });
-                }
-                return false;
-            }
-
-            logTransactionAttempt(txData, validation) {
-                logSecurityEvent('TRANSACTION_ATTEMPT', {
-                    validation,
-                    txSummary: this.summarizeTransaction(txData),
-                    domain: window.location.hostname
-                });
-            }
-
-            summarizeTransaction(txData) {
-                if (!txData) return 'Unknown transaction type';
-                
-                return {
-                    type: txData.type || 'unknown',
-                    hasRecipient: !!txData.recipient,
-                    hasAmount: !!txData.amount,
-                    complexity: JSON.stringify(txData).length
-                };
-            }
-        }
-
-        // Protection anti-DoS
-        class DoSProtection {
-            constructor() {
-                this.requestCounts = new Map();
-                this.maxRequestsPerSecond = 10;
-                this.maxMemoryUsage = 50 * 1024 * 1024; // 50MB
-                this.maxExecutionTime = 5000; // 5 secondes
-                this.init();
-            }
-
-            init() {
-                // Surveiller l'utilisation mémoire
-                if (performance.memory) {
-                    setInterval(() => this.checkMemoryUsage(), 5000);
-                }
-
-                // Surveiller les requêtes réseau
-                this.interceptFetch();
-                
-                // Surveiller les timeouts longs
-                this.interceptSetTimeout();
-            }
-
-            checkMemoryUsage() {
-                if (performance.memory && performance.memory.usedJSHeapSize > this.maxMemoryUsage) {
-                    securityMonitor.triggerAlert('HIGH_MEMORY_USAGE', {
-                        used: performance.memory.usedJSHeapSize,
-                        limit: this.maxMemoryUsage
-                    });
-                }
-            }
-
-            interceptFetch() {
-                const originalFetch = window.fetch;
-                window.fetch = (...args) => {
-                    if (this.isRequestAllowed()) {
-                        return originalFetch.apply(this, args);
-                    } else {
-                        throw new Error('Trop de requêtes - Protection DoS active');
-                    }
-                };
-            }
-
-            interceptSetTimeout() {
-                const originalSetTimeout = window.setTimeout;
-                window.setTimeout = (callback, delay, ...args) => {
-                    if (delay > this.maxExecutionTime) {
-                        console.warn('Timeout long détecté:', delay);
-                        logSecurityEvent('LONG_TIMEOUT', { delay });
-                        delay = Math.min(delay, this.maxExecutionTime);
-                    }
-                    return originalSetTimeout(callback, delay, ...args);
-                };
-            }
-
-            isRequestAllowed() {
-                const now = Date.now();
-                const second = Math.floor(now / 1000);
-                
-                const currentCount = this.requestCounts.get(second) || 0;
-                
-                if (currentCount >= this.maxRequestsPerSecond) {
-                    securityMonitor.triggerAlert('REQUEST_RATE_EXCEEDED', {
-                        count: currentCount,
-                        limit: this.maxRequestsPerSecond
-                    });
-                    return false;
-                }
-                
-                this.requestCounts.set(second, currentCount + 1);
-                
-                // Nettoyer les anciens compteurs
-                for (let [key] of this.requestCounts) {
-                    if (key < second - 5) {
-                        this.requestCounts.delete(key);
-                    }
-                }
-                
-                return true;
-            }
-
-            getStats() {
-                return {
-                    activeTimeouts: this.requestCounts.size,
-                    memoryUsage: performance.memory?.usedJSHeapSize || 0,
-                    lastCleanup: Date.now()
-                };
-            }
-        }
-
-        const dosProtection = new DoSProtection();
-            // Vérifier l'environnement
-            if (detectSuspiciousActivity()) {
-                document.body.innerHTML = '<h1>Accès refusé</h1>';
-                return false;
-            }
-
-            // Vérifier HTTPS en production
-            if (location.hostname !== 'localhost' && location.protocol !== 'https:') {
-                logSecurityEvent('INSECURE_CONNECTION', { protocol: location.protocol });
-                if (confirm('Connexion non sécurisée détectée. Rediriger vers HTTPS?')) {
-                    location.replace('https:' + window.location.href.substring(window.location.protocol.length));
-                }
-                return false;
-            }
-
-            // Protection contre le clickjacking
-            if (window.top !== window.self) {
-                logSecurityEvent('CLICKJACKING_ATTEMPT', { referrer: document.referrer });
-                document.body.innerHTML = '<h1>Cette page ne peut pas être intégrée dans un iframe</h1>';
-                return false;
-            }
-
-            console.log('🔒 Sécurité initialisée avec succès');
-            return true;
-        }
-
-        // Charger l'état de connexion depuis le stockage sécurisé
+        // Charger l'état de connexion depuis le localStorage
         function loadConnectionState() {
             try {
-                const saved = secureStorage.load();
-                if (saved && saved.phantom_sui_connection) {
-                    connectionState = { ...connectionState, ...saved.phantom_sui_connection };
+                const saved = localStorage.getItem('phantom_sui_connection');
+                if (saved) {
+                    connectionState = { ...connectionState, ...JSON.parse(saved) };
                     // Vérifier si la connexion n'est pas trop ancienne (24h max)
                     if (connectionState.lastConnected && 
                         Date.now() - connectionState.lastConnected < 24 * 60 * 60 * 1000) {
-                        
-                        // Validation supplémentaire de l'adresse chargée
-                        if (connectionState.address && isValidSuiAddress(connectionState.address)) {
-                            return true;
-                        } else {
-                            logSecurityEvent('INVALID_STORED_ADDRESS', { address: connectionState.address });
-                        }
+                        return true;
                     }
                 }
             } catch (e) {
-                logSecurityEvent('STORAGE_LOAD_ERROR', { error: e.message });
                 console.log('Erreur chargement état connexion:', e);
             }
             return false;
         }
 
-        // Sauvegarder l'état de connexion de façon sécurisée
+        // Sauvegarder l'état de connexion
         function saveConnectionState() {
             try {
                 connectionState.lastConnected = Date.now();
-                const success = secureStorage.save({ phantom_sui_connection: connectionState });
-                if (success) {
-                    logSecurityEvent('CONNECTION_SAVED', { address: connectionState.address });
-                } else {
-                    logSecurityEvent('STORAGE_SAVE_ERROR', {});
-                }
+                localStorage.setItem('phantom_sui_connection', JSON.stringify(connectionState));
             } catch (e) {
-                logSecurityEvent('STORAGE_SAVE_EXCEPTION', { error: e.message });
                 console.log('Erreur sauvegarde état connexion:', e);
             }
         }
 
-        // Afficher l'état connecté de façon sécurisée
+        // Afficher l'état connecté
         function showConnectedState() {
             console.log('🔄 showConnectedState appelé avec adresse:', connectionState.address);
             
             isConnected = true;
             userAddress = connectionState.address;
             
-            // Mettre à jour l'interface de façon sécurisée
+            // Mettre à jour l'interface
             walletInfo.classList.add('active');
-            secureUpdateDOM(walletAddress, userAddress);
+            walletAddress.textContent = userAddress;
             
             // Afficher l'avertissement selon le mode
             const demoWarning = document.getElementById('demoWarning');
@@ -1036,17 +446,6 @@
         }
 
         connectBtn.addEventListener('click', async () => {
-            // Vérification de sécurité avant toute action
-            if (!initializeSecurity()) {
-                return;
-            }
-
-            // Vérifier le rate limiting
-            const clientId = navigator.userAgent.substring(0, 50); // Identifier simple
-            if (!rateLimiter.canAttempt(clientId)) {
-                return; // L'erreur est gérée dans canAttempt()
-            }
-
             // Vérifier d'abord si on est connecté pour gérer la déconnexion
             if (isConnected || connectionState.isConnected) {
                 console.log('Bouton déconnexion cliqué');
@@ -1061,9 +460,6 @@
 
                 // Connexion réelle à Phantom
                 const result = await connectPhantom();
-
-                // Enregistrer le succès
-                rateLimiter.recordAttempt(clientId, true);
 
                 // Sauvegarder l'état de connexion
                 connectionState.isConnected = true;
@@ -1083,9 +479,6 @@
                 }
 
             } catch (error) {
-                // Enregistrer l'échec
-                rateLimiter.recordAttempt(clientId, false);
-                
                 console.error('Erreur de connexion:', error);
                 loading.style.display = 'none';
                 connectBtn.style.display = 'block';
@@ -1107,12 +500,7 @@
                     // Plus de popup, juste un log pour les développeurs
                     console.log('ℹ️ Erreur technique Phantom gérée automatiquement. L\'intégration Sui est récente.');
                     errorMessage = 'Connexion établie malgré une erreur technique de Phantom.';
-                } else if (error.message.includes('Trop de tentatives')) {
-                    errorMessage = error.message; // Message du rate limiter
                 }
-                
-                // Logger l'erreur
-                logSecurityEvent('CONNECTION_ERROR', { error: error.message, clientId });
                 
                 // N'afficher l'alerte que si ce n'est PAS une récupération automatique
                 if (!error.message.includes('Connexion établie malgré')) {
@@ -1319,16 +707,9 @@
                     }
                     
                     if (realAddress) {
-                        // VALIDATION SÉCURITAIRE
-                        try {
-                            validateConnection(realAddress, 'recovery');
-                            userAddress = realAddress;
-                            console.log('🎉 Récupération réussie de la vraie adresse Phantom:', userAddress);
-                            return { address: userAddress, mode: 'real_recovery' };
-                        } catch (validationError) {
-                            console.error('❌ Validation échouée:', validationError);
-                            throw new Error('Adresse récupérée invalide: ' + validationError.message);
-                        }
+                        userAddress = realAddress;
+                        console.log('🎉 Récupération réussie de la vraie adresse Phantom:', userAddress);
+                        return { address: userAddress, mode: 'real_recovery' };
                     } else {
                         // Seulement en dernier recours
                         console.warn('⚠️ Impossible de récupérer la vraie adresse, mode temporaire');
@@ -1462,28 +843,13 @@
             document.querySelector('.container').appendChild(diagnosticDiv);
         }
 
-        // Vérifier la connexion au chargement avec sécurité
+        // Vérifier la connexion au chargement
         window.addEventListener('load', () => {
-            // Initialiser la sécurité en premier
-            if (!initializeSecurity()) {
-                return; // Arrêter si l'initialisation échoue
-            }
-
             // Attendre que Phantom soit chargé
             setTimeout(() => {
-                try {
-                    checkConnection();
-                    addDiagnosticInfo(); // Ajouter les infos de diagnostic
-                    
-                    // Ajouter le diagnostic de sécurité en mode développement
-                    if (location.hostname === 'localhost' || location.hostname.includes('localhost')) {
-                        console.log('🔒 DIAGNOSTIC SÉCURITÉ:', getSecurityDiagnostic());
-                    }
-                    
-                } catch (error) {
-                    securityMonitor.logError('INITIALIZATION_ERROR', { error: error.message });
-                }
-            }, 2000);
+                checkConnection();
+                addDiagnosticInfo(); // Ajouter les infos de diagnostic
+            }, 2000); // Augmenter le délai pour laisser le temps à Phantom de se charger
         });
 
         // Alternative: écouter l'événement Phantom
