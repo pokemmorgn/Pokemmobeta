@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.0.0 - Phantom Only
+      v4.0.3 - Phantom Only
     </div>
     
     <div class="main-card">
@@ -191,11 +191,42 @@
               allSuiKeys: Object.keys(provider.sui)
             });
             
+            // Essayer requestAccount en premier
             if (provider.sui.requestAccount) {
               console.log('🔧 Using provider.sui.requestAccount() - SUI METHOD FOUND!');
-              const result = await provider.sui.requestAccount();
-              console.log('🔧 SUI RequestAccount result:', result);
-              return result.accounts?.[0] || result.address || JSON.stringify(result);
+              try {
+                const result = await provider.sui.requestAccount();
+                console.log('🔧 SUI RequestAccount result:', result);
+                return result.accounts?.[0] || result.address || result || 'Connected to Phantom SUI';
+              } catch (requestError) {
+                console.log('🔧 RequestAccount failed, trying other methods:', requestError);
+                
+                // Si requestAccount échoue, essayer d'autres méthodes SUI
+                const availableMethods = Object.getOwnPropertyNames(provider.sui)
+                  .filter(method => typeof provider.sui[method] === 'function');
+                
+                console.log('🔧 Available SUI methods to try:', availableMethods);
+                
+                // Essayer getAccount si disponible
+                if (provider.sui.getAccount) {
+                  try {
+                    console.log('🔧 Trying sui.getAccount()');
+                    const accountResult = await provider.sui.getAccount();
+                    console.log('🔧 getAccount result:', accountResult);
+                    return accountResult || 'SUI account found via getAccount';
+                  } catch (e) {
+                    console.log('🔧 getAccount failed:', e);
+                  }
+                }
+                
+                // Essayer une approche plus directe
+                if (provider.sui.isConnected && provider.sui.isConnected()) {
+                  console.log('🔧 SUI already connected, getting account info');
+                  return 'Already connected to Phantom SUI';
+                }
+                
+                throw new Error(`All SUI methods failed. RequestAccount error: ${requestError.message}`);
+              }
             } else if (provider.sui.connect) {
               console.log('🔧 Using provider.sui.connect() - SUI FALLBACK');
               const result = await provider.sui.connect();
