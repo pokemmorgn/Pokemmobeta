@@ -953,8 +953,27 @@
                 return false;
             }
 
-            console.log('🔒 Sécurité initialisée avec succès');
-            return true;
+            // Fonction de diagnostic de sécurité
+        function getSecurityDiagnostic() {
+            return {
+                timestamp: new Date().toISOString(),
+                environment: {
+                    https: location.protocol === 'https:',
+                    domain: location.hostname,
+                    inFrame: window.top !== window.self
+                },
+                systems: {
+                    monitor: securityMonitor.getStatus(),
+                    dosProtection: dosProtection.getStats(),
+                    rateLimiter: rateLimiter.attempts.size,
+                    secureStorage: !!secureStorage
+                },
+                phantom: {
+                    detected: !!window.phantom,
+                    suiSupport: !!window.phantom?.sui,
+                    connected: isConnected
+                }
+            };
         }
 
         // Charger l'état de connexion depuis le stockage sécurisé
