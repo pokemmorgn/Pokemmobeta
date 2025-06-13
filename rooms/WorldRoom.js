@@ -1,39 +1,34 @@
-const { Room } = require("colyseus");
+// WorldRoom.js
+const colyseus = require("colyseus");
 
-class WorldRoom extends Room {
+class WorldRoom extends colyseus.Room {
   onCreate(options) {
-    console.log("🌍 WorldRoom created");
+    // Structure partagée par tous les clients
+    this.setState({
+      players: {}
+    });
 
-    // Définir la boucle de jeu (par ex. 20 fois par seconde)
-    this.setSimulationInterval((deltaTime) => this.update(deltaTime));
-  }
-
-  onJoin(client, options) {
-    console.log(`👤 ${client.sessionId} joined the world`);
-    // Tu pourrais ici envoyer la position du joueur, la map, etc.
-  }
-
-  onMessage(client, message) {
-    console.log(`📩 ${client.sessionId} sent`, message);
-
-    // Exemple simple de broadcast
-    this.broadcast("player_action", {
-      from: client.sessionId,
-      data: message
+    // Quand un client envoie des messages
+    this.onMessage("move", (client, data) => {
+      if (this.state.players[client.sessionId]) {
+        // Met à jour la position du joueur
+        this.state.players[client.sessionId].x = data.x;
+        this.state.players[client.sessionId].y = data.y;
+      }
     });
   }
 
-  update(deltaTime) {
-    // Boucle de jeu régulière ici
-    // ex : gestion de position, collision, animation...
+  // Quand un joueur rejoint la room
+  onJoin(client, options) {
+    // Ajoute le joueur avec une position de départ
+    this.state.players[client.sessionId] = { x: 100, y: 100 };
+    console.log("Player joined:", client.sessionId);
   }
 
+  // Quand un joueur quitte la room
   onLeave(client, consented) {
-    console.log(`👋 ${client.sessionId} left the world`);
-  }
-
-  onDispose() {
-    console.log("🧹 WorldRoom disposed");
+    delete this.state.players[client.sessionId];
+    console.log("Player left:", client.sessionId);
   }
 }
 
