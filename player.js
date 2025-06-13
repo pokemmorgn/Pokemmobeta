@@ -1,19 +1,21 @@
 import { targetX, targetY } from './input.js';
 
 export const player = {
+  id: null,
   x: 300,
   y: 300,
   size: 30,
   color: 'red',
-  speed: 2,
-  name: "Psyduck" // ← Change ce nom si tu veux
+  name: "Joueur",
+  skin: "default",
+  gold: 0,
+  speed: 2
 };
 
 export function updatePlayer() {
   const speed = player.speed;
   let usedKeyboard = false;
 
-  // Déplacements clavier
   if (window.keys['arrowup'] || window.keys['w']) {
     player.y -= speed;
     usedKeyboard = true;
@@ -31,12 +33,8 @@ export function updatePlayer() {
     usedKeyboard = true;
   }
 
-  // Si on utilise le clavier, on annule la cible
-  if (usedKeyboard) {
-    cancelTarget();
-  }
+  if (usedKeyboard) cancelTarget();
 
-  // Déplacement vers la cible (clic / doigt)
   if (targetX !== null && targetY !== null) {
     const dx = targetX - (player.x + player.size / 2);
     const dy = targetY - (player.y + player.size / 2);
@@ -49,7 +47,6 @@ export function updatePlayer() {
 }
 
 function cancelTarget() {
-  // Supprime la cible tactile ou souris
-  targetX = null;
-  targetY = null;
+  window.targetX = null;
+  window.targetY = null;
 }
