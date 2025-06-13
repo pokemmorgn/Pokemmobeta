@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.0.3 - Phantom Only
+      v4.1.0 - Debug SUI Methods
     </div>
     
     <div class="main-card">
@@ -207,6 +207,11 @@
                 
                 console.log('🔧 Available SUI methods to try:', availableMethods);
                 
+                // Lister toutes les méthodes avec plus de détails
+                availableMethods.forEach(method => {
+                  console.log(`🔧 Method ${method}:`, provider.sui[method]);
+                });
+                
                 // Essayer getAccount si disponible
                 if (provider.sui.getAccount) {
                   try {
@@ -219,10 +224,47 @@
                   }
                 }
                 
+                // Essayer getAccounts si disponible  
+                if (provider.sui.getAccounts) {
+                  try {
+                    console.log('🔧 Trying sui.getAccounts()');
+                    const accountsResult = await provider.sui.getAccounts();
+                    console.log('🔧 getAccounts result:', accountsResult);
+                    return accountsResult?.[0] || accountsResult || 'SUI accounts found via getAccounts';
+                  } catch (e) {
+                    console.log('🔧 getAccounts failed:', e);
+                  }
+                }
+                
                 // Essayer une approche plus directe
                 if (provider.sui.isConnected && provider.sui.isConnected()) {
                   console.log('🔧 SUI already connected, getting account info');
                   return 'Already connected to Phantom SUI';
+                }
+                
+                // Dernière tentative : vérifier si on peut accéder à l'état du wallet
+                try {
+                  console.log('🔧 Checking SUI wallet state...');
+                  const state = {
+                    isPhantom: provider.sui.isPhantom,
+                    hasEvents: !!provider.sui._events,
+                    methods: availableMethods
+                  };
+                  console.log('🔧 SUI wallet state:', state);
+                  
+                  // Si Phantom SUI est là mais pas connecté, donner des instructions
+                  if (provider.sui.isPhantom) {
+                    throw new Error(`Phantom SUI detected but connection failed. Please:
+                    
+1. 🔓 Make sure Phantom wallet is unlocked
+2. 🔄 Refresh the page
+3. 🌐 Try opening Phantom extension manually first
+4. ⚙️ Check if SUI network is enabled in Phantom settings
+
+Available SUI methods: ${availableMethods.join(', ')}`);
+                  }
+                } catch (stateError) {
+                  console.log('🔧 State check failed:', stateError);
                 }
                 
                 throw new Error(`All SUI methods failed. RequestAccount error: ${requestError.message}`);
