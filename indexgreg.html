@@ -298,7 +298,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v3.0.0 - Auto-Fix
+      v4.0.0 - Web App Integration
     </div>
     
     <div class="main-card">
@@ -624,274 +624,13 @@ Our code successfully detected Slush via postMessage but the extension cannot re
           }
         }
 
-        // Recherche ULTRA-SPÉCIALISÉE pour Slush
+        // Recherche ULTRA-SPÉCIALISÉE pour Slush - simplifié car on utilise maintenant le Web App
         if (!isInstalled && config.id === 'slush') {
-          console.log('🌊 Starting specialized Slush detection...');
-          
-          // Méthode 1: Chercher dans tous les objets qui ont des méthodes de connexion
-          for (const [key, objInfo] of Object.entries(walletLikeObjects)) {
-            const obj = window[key];
-            if (obj && (objInfo.hasConnect || objInfo.hasEnable)) {
-              // Vérifier si c'est potentiellement Slush par inspection
-              const objString = obj.toString();
-              const hasSlushIndicators = objString.includes('sui') || 
-                                       objString.includes('Sui') || 
-                                       objString.includes('slush') ||
-                                       objString.includes('Slush');
-              
-              if (hasSlushIndicators) {
-                provider = obj;
-                isInstalled = true;
-                detectedVia = `${key} (Slush indicators found)`;
-                console.log(`🌊 Found Slush via indicators in ${key}:`, obj);
-                break;
-              }
-            }
-          }
-          
-          // Méthode 2: Vérifier les événements postMessage (Slush peut utiliser ça)
-          if (!isInstalled) {
-            console.log('🌊 Checking for Slush postMessage API...');
-            try {
-              // Écouter TOUS les messages pour voir ce que Slush envoie réellement
-              const messageListener = (event) => {
-                // Log détaillé de TOUS les messages
-                console.log('🌊 Received message:', {
-                  data: event.data,
-                  origin: event.origin,
-                  type: typeof event.data,
-                  stringified: JSON.stringify(event.data),
-                  keys: event.data && typeof event.data === 'object' ? Object.keys(event.data) : 'N/A'
-                });
-                
-                // Chercher spécifiquement les messages liés à Sui/Slush
-                if (event.data && typeof event.data === 'object') {
-                  const dataStr = JSON.stringify(event.data).toLowerCase();
-                  if (dataStr.includes('sui') || dataStr.includes('slush') || dataStr.includes('wallet') || dataStr.includes('connect')) {
-                    console.log('🌊 POTENTIAL SLUSH MESSAGE DETECTED:', event.data);
-                  }
-                }
-              };
-              window.addEventListener('message', messageListener);
-              
-              // Créer un provider postMessage pour Slush
-              const postMessageProvider = {
-                connect: async () => {
-                  return new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => {
-                      window.removeEventListener('message', messageListener);
-                      reject(new Error('Slush connection timeout - no response received'));
-                    }, 15000);
-                    
-                    const handleSlushResponse = (event) => {
-                      console.log('🌊 Checking message for Slush response:', {
-                        data: event.data,
-                        dataType: typeof event.data,
-                        stringified: JSON.stringify(event.data),
-                        hasType: !!(event.data && event.data.type),
-                        hasMethod: !!(event.data && event.data.method),
-                        hasResult: !!(event.data && event.data.result)
-                      });
-                      
-                      // Rechercher différents formats de réponse
-                      if (event.data && (
-                          event.data.type === 'SLUSH_CONNECT_RESPONSE' ||
-                          event.data.type === 'SUI_CONNECT_RESPONSE' ||
-                          event.data.type === 'WALLET_CONNECT_RESPONSE' ||
-                          (event.data.method && event.data.method.includes('connect')) ||
-                          (event.data.result && event.data.result.accounts) ||
-                          // Nouveaux patterns à chercher
-                          event.data.type === 'wallet-standard:register-wallet' ||
-                          event.data.type === 'sui-wallet:connect' ||
-                          event.data.target === 'slush-inpage' ||
-                          event.data.target === 'sui-wallet' ||
-                          // IMPORTANT: Ne pas se connecter sur nos propres requêtes !
-                          (event.data.type === 'WALLET_CONNECT_REQUEST' && event.data.method === 'connect' && !event.data.fromSelf)
-                      )) {
-                        console.log('🌊 SLUSH RESPONSE MATCH FOUND!', event.data);
-                        
-                        // Vérifier si c'est notre propre message (éviter les boucles)
-                        if (event.data.origin === window.location.origin && 
-                            (event.data.type === 'SLUSH_CONNECT_REQUEST' || 
-                             event.data.type === 'SUI_CONNECT_REQUEST' ||
-                             event.data.type === 'WALLET_CONNECT_REQUEST')) {
-                          console.log('🌊 Ignoring our own request message');
-                          return;
-                        }
-                        
-                        clearTimeout(timeout);
-                        window.removeEventListener('message', handleSlushResponse);
-                        window.removeEventListener('message', messageListener);
-                        resolve(event.data.result || event.data || 'Slush detected via postMessage - extension may be blocked');
-                      }
-                    };
-                    
-                    window.addEventListener('message', handleSlushResponse);
-                    
-                    // Essayer plusieurs formats de requête
-                    console.log('🌊 Sending Slush connection requests...');
-                    
-                    // Format 1: Slush spécifique
-                    window.postMessage({
-                      type: 'SLUSH_CONNECT_REQUEST',
-                      origin: window.location.origin,
-                      timestamp: Date.now(),
-                      fromSelf: true
-                    }, '*');
-                    
-                    // Format 2: SUI générique
-                    setTimeout(() => {
-                      window.postMessage({
-                        type: 'SUI_CONNECT_REQUEST',
-                        params: { origin: window.location.origin },
-                        fromSelf: true
-                      }, '*');
-                    }, 1000);
-                    
-                    // Format 3: Standard wallet
-                    setTimeout(() => {
-                      window.postMessage({
-                        type: 'WALLET_CONNECT_REQUEST',
-                        method: 'connect',
-                        params: {},
-                        fromSelf: true
-                      }, '*');
-                    }, 2000);
-                    
-                    // Format 4: Essayer de déclencher manuellement Slush
-                    setTimeout(() => {
-                      // Essayer d'ouvrir directement l'extension Slush
-                      console.log('🌊 Attempting to trigger Slush extension directly...');
-                      
-                      // Méthode 1: Essayer de simuler l'ouverture de l'extension
-                      try {
-                        const slushUrl = 'chrome-extension://opcgpfmipidbgpenhmajoajpbobppdil/popup.html';
-                        window.open(slushUrl, 'slush-popup', 'width=400,height=600');
-                      } catch (e) {
-                        console.log('🌊 Direct extension open failed:', e);
-                      }
-                      
-                      // Méthode 2: Chercher les événements du DOM qui pourraient déclencher Slush
-                      const connectEvents = ['sui-wallet-connect', 'slush-connect', 'wallet-connect'];
-                      connectEvents.forEach(eventName => {
-                        console.log('🌊 Dispatching event:', eventName);
-                        window.dispatchEvent(new CustomEvent(eventName, {
-                          detail: { origin: window.location.origin }
-                        }));
-                        document.dispatchEvent(new CustomEvent(eventName, {
-                          detail: { origin: window.location.origin }
-                        }));
-                      });
-                      
-                      // Méthode 3: Vérifier si window.suiWallet apparaît après quelques secondes
-                      setTimeout(() => {
-                        if (window.suiWallet && !provider.realProvider) {
-                          console.log('🌊 FOUND window.suiWallet after delay!', window.suiWallet);
-                          provider.realProvider = window.suiWallet;
-                        }
-                        if (window.slush && !provider.realProvider) {
-                          console.log('🌊 FOUND window.slush after delay!', window.slush);
-                          provider.realProvider = window.slush;
-                        }
-                      }, 2000);
-                      
-                    }, 3000);
-                  });
-                }
-              };
-              
-              provider = postMessageProvider;
-              isInstalled = true;
-              detectedVia = 'postMessage API (advanced)';
-              console.log('🌊 Using advanced Slush postMessage provider');
-            } catch (e) {
-              console.log('🌊 PostMessage detection failed:', e);
-            }
-          }
-          
-          // Méthode 3: Vérifier les iframes cachés (Slush web app)
-          if (!isInstalled) {
-            const iframes = document.querySelectorAll('iframe');
-            for (const iframe of iframes) {
-              if (iframe.src && (iframe.src.includes('slush') || iframe.src.includes('sui'))) {
-                console.log('🌊 Found potential Slush iframe:', iframe.src);
-                // Créer un provider iframe
-                const iframeProvider = {
-                  connect: async () => {
-                    return 'Slush iframe detected - manual connection required';
-                  }
-                };
-                provider = iframeProvider;
-                isInstalled = true;
-                detectedVia = 'iframe detection';
-                break;
-              }
-            }
-          }
-          
-          // Méthode 4: Recherche dans le DOM pour les éléments Slush
-          if (!isInstalled) {
-            console.log('🌊 Checking DOM for Slush elements...');
-            const slushSelectors = [
-              '[data-slush]', '[class*="slush"]', '[id*="slush"]',
-              '[data-sui]', '[class*="sui"]', '[id*="sui"]',
-              'button[class*="wallet"]', 'div[class*="wallet"]',
-              '[aria-label*="wallet"]', '[title*="wallet"]'
-            ];
-            
-            let slushElements = [];
-            for (const selector of slushSelectors) {
-              const elements = document.querySelectorAll(selector);
-              slushElements = [...slushElements, ...Array.from(elements)];
-            }
-            
-            if (slushElements.length > 0) {
-              console.log('🌊 Found potential Slush DOM elements:', slushElements);
-              const domProvider = {
-                connect: async () => {
-                  console.log('🌊 Attempting DOM-based Slush connection...');
-                  
-                  // Essayer de cliquer sur chaque élément potentiel
-                  for (const element of slushElements) {
-                    const elementText = element.textContent || element.innerText || '';
-                    const elementClass = element.className || '';
-                    const elementId = element.id || '';
-                    
-                    console.log(`🌊 Checking element: ${elementText} (class: ${elementClass}, id: ${elementId})`);
-                    
-                    // Vérifier si l'élément semble être lié à Slush/SUI
-                    if (elementText.toLowerCase().includes('slush') || 
-                        elementText.toLowerCase().includes('sui') ||
-                        elementClass.toLowerCase().includes('slush') ||
-                        elementClass.toLowerCase().includes('sui') ||
-                        elementId.toLowerCase().includes('slush') ||
-                        elementId.toLowerCase().includes('sui')) {
-                      
-                      console.log('🌊 Found potential Slush element, clicking:', element);
-                      
-                      // Essayer différentes façons de déclencher l'élément
-                      if (element.click) {
-                        element.click();
-                      }
-                      if (element.dispatchEvent) {
-                        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                      }
-                      
-                      // Attendre un peu pour voir si ça déclenche quelque chose
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
-                  }
-                  
-                  return 'Slush DOM elements triggered - check if wallet popup appeared';
-                }
-              };
-              provider = domProvider;
-              isInstalled = true;
-              detectedVia = `DOM elements (${slushElements.length} found)`;
-            } else {
-              console.log('🌊 No Slush DOM elements found');
-            }
-          }
+          console.log('🌊 Slush extension not found, will use Web App as fallback');
+          // Marquer comme "installé" pour permettre la connexion via Web App
+          provider = { type: 'web-app' };
+          isInstalled = true;
+          detectedVia = 'Web App fallback (no extension needed)';
         }
 
         // Recherche spéciale pour Phantom (peut être dans window.ethereum si multichain)
@@ -1005,9 +744,15 @@ Our code successfully detected Slush via postMessage but the extension cannot re
 
         const address = await wallet.connectMethod(wallet.provider);
         
+        // Formater l'adresse proprement
+        let displayAddress = address;
+        if (typeof address === 'object' && address !== null) {
+          displayAddress = JSON.stringify(address, null, 2);
+        }
+        
         showStatus(`
           🎉 Successfully connected to ${wallet.name}!
-          <div class="address-display">${address}</div>
+          <div class="address-display">${displayAddress}</div>
         `, 'success');
         
         closeWalletModal();
