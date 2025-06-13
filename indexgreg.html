@@ -127,6 +127,23 @@
         'Object.keys(window).filter(k => k.includes("wallet"))': Object.keys(window).filter(k => k.toLowerCase().includes('wallet')),
       };
 
+      // Debug avancé pour Phantom
+      if (window.phantom) {
+        walletObjects['phantom methods'] = Object.getOwnPropertyNames(window.phantom);
+        walletObjects['phantom prototype'] = Object.getOwnPropertyNames(Object.getPrototypeOf(window.phantom));
+        
+        // Vérifier les propriétés spécifiques
+        if (window.phantom.sui) {
+          walletObjects['phantom.sui methods'] = Object.getOwnPropertyNames(window.phantom.sui);
+        }
+        if (window.phantom.request) {
+          walletObjects['phantom.request available'] = 'YES';
+        }
+        if (window.phantom.connect) {
+          walletObjects['phantom.connect available'] = 'YES';
+        }
+      }
+
       debugDiv.textContent = JSON.stringify(walletObjects, null, 2);
     }
 
@@ -136,25 +153,54 @@
         name: "Phantom (SUI)",
         key: "phantom-sui",
         detector: () => {
-          // Plusieurs façons de détecter Phantom avec SUI
-          if (window.phantom && window.phantom.sui) return window.phantom.sui;
-          if (window.phantom && window.phantom.request) return window.phantom; // Approach générique
+          // Vérifier les différentes façons dont Phantom peut être exposé
+          if (window.phantom) {
+            // Vérifier si SUI est supporté dans Phantom
+            return window.phantom;
+          }
           return null;
         },
         connect: async function() {
           const provider = this.detector();
-          if (!provider) throw new Error("Phantom SUI not found");
+          if (!provider) throw new Error("Phantom not found");
           
-          if (provider.sui) {
-            // API SUI spécifique
-            const result = await provider.sui.connect();
-            return result.accounts?.[0] || result.address || result.publicKey;
-          } else if (provider.request) {
-            // API générique request
-            const result = await provider.request({ method: 'sui_connect' });
-            return result.accounts?.[0] || result.address || result;
+          // Essayer différentes méthodes d'API Phantom pour SUI
+          try {
+            // Méthode 1: API directe SUI (si disponible)
+            if (provider.sui && provider.sui.connect) {
+              const result = await provider.sui.connect();
+              return result.accounts?.[0] || result.address || result.publicKey;
+            }
+            
+            // Méthode 2: API request générique
+            if (provider.request) {
+              try {
+                const result = await provider.request({ 
+                  method: 'sui_connect',
+                  params: {} 
+                });
+                return result.accounts?.[0] || result.address || result;
+              } catch (e) {
+                // Si sui_connect ne fonctionne pas, essayer connect
+                const result = await provider.request({ 
+                  method: 'connect',
+                  params: { chain: 'sui' }
+                });
+                return result.accounts?.[0] || result.address || result;
+              }
+            }
+            
+            // Méthode 3: API connect standard avec chaîne
+            if (provider.connect) {
+              const result = await provider.connect({ onlyIfTrusted: false });
+              return result.accounts?.[0] || result.address || result.publicKey;
+            }
+            
+            throw new Error("No compatible SUI API found in Phantom");
+            
+          } catch (error) {
+            throw new Error(`Phantom SUI connection failed: ${error.message}`);
           }
-          throw new Error("Unknown Phantom API");
         }
       },
       {
