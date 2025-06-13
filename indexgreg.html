@@ -1,72 +1,4 @@
-connectBtn.addEventListener('click', async () => {
-            // Vérifier d'abord si on est connecté pour gérer la déconnexion
-            if (isConnected || connectionState.isConnected) {
-                console.log('Bouton déconnexion cliqué');
-                disconnect();
-                return;
-            }
-
-            // ÉVITER la double vérification - ne pas vérifier l'état sauvegardé ici
-            // car cela a déjà été fait au chargement de la page
-
-            try {
-                // Afficher le loading
-                connectBtn.style.display = 'none';
-                loading.style.display = 'block';
-
-                // Connexion réelle à Phantom
-                const result = await connectPhantom();
-
-                // Sauvegarder l'état de connexion
-                connectionState.isConnected = true;
-                connectionState.address = userAddress;
-                connectionState.mode = result.mode || 'normal';
-                saveConnectionState();
-
-                // Cacher le loading
-                loading.style.display = 'none';
-                
-                // Afficher les informations du portefeuille
-                showConnectedState();
-                
-                // Notification discrète si mode récupération
-                if (result.mode === 'auto_recovery') {
-                    console.log('✅ Connexion réussie (mode récupération automatique)');
-                }
-
-            } catch (error) {
-                console.error('Erreur de connexion:', error);
-                loading.style.display = 'none';
-                connectBtn.style.display = 'block';
-                
-                let errorMessage = 'Erreur lors de la connexion.';
-                if (error.message.includes('not found') || error.message.includes('non trouvé')) {
-                    errorMessage = 'Phantom Wallet n\'est pas installé. Veuillez l\'installer depuis phantom.app';
-                } else if (error.message.includes('rejected') || error.message.includes('refusée')) {
-                    errorMessage = 'Connexion refusée par l\'utilisateur.';
-                } else if (error.message.includes('Sui not supported')) {
-                    errorMessage = 'Le réseau Sui n\'est pas supporté par cette version de Phantom.';
-                } else if (error.message.includes('Timeout')) {
-                    errorMessage = 'La connexion a expiré. Avez-vous approuvé la demande dans Phantom ?';
-                } else if (error.message.includes('non approuvée')) {
-                    errorMessage = 'Veuillez approuver la connexion dans la popup Phantom qui s\'ouvre.';
-                } else if (error.message.includes('Unexpected error') || 
-                          error.message.includes('$e') || 
-                          error.message.includes('Cannot read properties of undefined')) {
-                    // Plus de popup, juste un log pour les développeurs
-                    console.log('ℹ️ Erreur technique Phantom gérée automatiquement. L\'intégration Sui est récente.');
-                    errorMessage = 'Connexion établie malgré une erreur technique de Phantom.';
-                }
-                
-                // N'afficher l'alerte que si ce n'est PAS une récupération automatique
-                if (!error.message.includes('Connexion établie malgré')) {
-                    alert(errorMessage);
-                } else {
-                    // Pour les récupérations automatiques, juste un log
-                    console.log('✅', errorMessage);
-                }
-            }
-        });<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -440,6 +372,11 @@ connectBtn.addEventListener('click', async () => {
             mode: null
         };
 
+        const connectBtn = document.getElementById('connectBtn');
+        const loading = document.getElementById('loading');
+        const walletInfo = document.getElementById('walletInfo');
+        const walletAddress = document.getElementById('walletAddress');
+
         // Charger l'état de connexion depuis le localStorage
         function loadConnectionState() {
             try {
@@ -490,21 +427,11 @@ connectBtn.addEventListener('click', async () => {
             console.log('✅ Interface mise à jour - Bouton:', connectBtn.textContent);
         }
 
-        const connectBtn = document.getElementById('connectBtn');
-        const loading = document.getElementById('loading');
-        const walletInfo = document.getElementById('walletInfo');
-        const walletAddress = document.getElementById('walletAddress');
-
         connectBtn.addEventListener('click', async () => {
-            if (isConnected) {
+            // Vérifier d'abord si on est connecté pour gérer la déconnexion
+            if (isConnected || connectionState.isConnected) {
+                console.log('Bouton déconnexion cliqué');
                 disconnect();
-                return;
-            }
-
-            // Vérifier d'abord si on a un état de connexion sauvegardé
-            if (loadConnectionState() && connectionState.address) {
-                console.log('Connexion existante détectée, restauration...');
-                showConnectedState();
                 return;
             }
 
@@ -793,33 +720,6 @@ connectBtn.addEventListener('click', async () => {
             }
         }
 
-        // Ajouter un bouton de diagnostic
-        function addDiagnosticInfo() {
-            const diagnosticDiv = document.createElement('div');
-            diagnosticDiv.style.cssText = `
-                margin-top: 20px;
-                padding: 12px;
-                background: #f3f4f6;
-                border-radius: 8px;
-                font-size: 12px;
-                color: #6b7280;
-                border: 1px solid #e5e7eb;
-            `;
-            
-            const phantomMethods = window.phantom?.sui ? Object.getOwnPropertyNames(window.phantom.sui).filter(prop => typeof window.phantom.sui[prop] === 'function') : [];
-            
-            diagnosticDiv.innerHTML = `
-                <strong>Diagnostic:</strong><br>
-                Phantom installé: ${!!window.phantom ? '✅' : '❌'}<br>
-                Phantom.sui: ${!!window.phantom?.sui ? '✅' : '❌'}<br>
-                Méthodes Sui disponibles: ${phantomMethods.length > 0 ? phantomMethods.join(', ') : 'Aucune'}<br>
-                User Agent: ${navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Autre'}<br>
-                ${window.phantom?.sui ? 'Version API: ' + (window.phantom.sui.version || 'Inconnue') : ''}
-            `;
-            
-            document.querySelector('.container').appendChild(diagnosticDiv);
-        }
-
         // Écouter les changements de compte - Avec protection contre les erreurs
         if (window.phantom?.sui) {
             try {
@@ -851,6 +751,33 @@ connectBtn.addEventListener('click', async () => {
             } catch (e) {
                 console.log('Erreur lors de l\'ajout des listeners:', e);
             }
+        }
+
+        // Ajouter un bouton de diagnostic
+        function addDiagnosticInfo() {
+            const diagnosticDiv = document.createElement('div');
+            diagnosticDiv.style.cssText = `
+                margin-top: 20px;
+                padding: 12px;
+                background: #f3f4f6;
+                border-radius: 8px;
+                font-size: 12px;
+                color: #6b7280;
+                border: 1px solid #e5e7eb;
+            `;
+            
+            const phantomMethods = window.phantom?.sui ? Object.getOwnPropertyNames(window.phantom.sui).filter(prop => typeof window.phantom.sui[prop] === 'function') : [];
+            
+            diagnosticDiv.innerHTML = `
+                <strong>Diagnostic:</strong><br>
+                Phantom installé: ${!!window.phantom ? '✅' : '❌'}<br>
+                Phantom.sui: ${!!window.phantom?.sui ? '✅' : '❌'}<br>
+                Méthodes Sui disponibles: ${phantomMethods.length > 0 ? phantomMethods.join(', ') : 'Aucune'}<br>
+                User Agent: ${navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Autre'}<br>
+                ${window.phantom?.sui ? 'Version API: ' + (window.phantom.sui.version || 'Inconnue') : ''}
+            `;
+            
+            document.querySelector('.container').appendChild(diagnosticDiv);
         }
 
         // Vérifier la connexion au chargement
