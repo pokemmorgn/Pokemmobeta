@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.1.0 - Debug SUI Methods
+      v4.2.0 - SUI Setup Helper
     </div>
     
     <div class="main-card">
@@ -254,14 +254,46 @@
                   
                   // Si Phantom SUI est là mais pas connecté, donner des instructions
                   if (provider.sui.isPhantom) {
-                    throw new Error(`Phantom SUI detected but connection failed. Please:
-                    
-1. 🔓 Make sure Phantom wallet is unlocked
-2. 🔄 Refresh the page
-3. 🌐 Try opening Phantom extension manually first
-4. ⚙️ Check if SUI network is enabled in Phantom settings
+                    const helpMessage = `
+🚨 PHANTOM SUI CONNECTION ISSUE 🚨
 
-Available SUI methods: ${availableMethods.join(', ')}`);
+Phantom SUI is detected but connection failed with "Unexpected error".
+
+📋 TROUBLESHOOTING STEPS:
+
+1. 🔓 **UNLOCK PHANTOM WALLET**
+   - Click on Phantom extension icon
+   - Enter your password if locked
+
+2. ⚙️ **ENABLE SUI IN PHANTOM**
+   - Open Phantom wallet
+   - Go to Settings → Networks
+   - Make sure SUI network is enabled
+   - Switch to SUI network if needed
+
+3. 🔄 **REFRESH & RETRY**
+   - After completing steps 1-2
+   - Refresh this page
+   - Try connecting again
+
+4. 🌐 **MANUAL TEST**
+   - Open Phantom extension manually
+   - Check if you can see SUI accounts
+   - Create a SUI account if none exists
+
+Available methods: ${availableMethods.join(', ')}
+
+Would you like to try opening Phantom manually?`;
+
+                    // Essayer d'ouvrir Phantom automatiquement
+                    try {
+                      console.log('🔧 Attempting to open Phantom extension...');
+                      window.open('chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/notification.html', '_blank', 'width=400,height=600');
+                    } catch (openError) {
+                      console.log('🔧 Could not auto-open Phantom:', openError);
+                    }
+
+                    throw new Error(helpMessage);
                   }
                 } catch (stateError) {
                   console.log('🔧 State check failed:', stateError);
