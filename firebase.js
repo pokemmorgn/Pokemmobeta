@@ -1,9 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
 import {
-  getDatabase, ref, set, onValue, remove, onDisconnect, get
+  getDatabase, ref, set, onValue, onDisconnect
 } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
-// ✅ Configuration Firebase
+// ✅ Config
 const firebaseConfig = {
   apiKey: "AIzaSyA6xA7QiWQP99RGT8xa03IYYXFgko3cPXU",
   authDomain: "pokemmo-d0275.firebaseapp.com",
@@ -13,51 +16,45 @@ const firebaseConfig = {
   appId: "1:154574930778:web:698ff50a31a49e2b482963"
 };
 
-// ✅ Initialisation Firebase avec bonne région
+// ✅ Initialisation
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app, "https://pokemmo-d0275-default-rtdb.europe-west1.firebasedatabase.app");
+const auth = getAuth(app);
 
 let playerRef;
 export let playersData = {};
 
-// ✅ Authentifie via ID local + récupère nom et position
 export function authAndInit(player, callback) {
-  let id = localStorage.getItem("playerId");
-  if (!id) {
-    id = "player_" + Math.floor(Math.random() * 1000000);
-    localStorage.setItem("playerId", id);
-  }
-  player.id = id;
+  signInAnonymously(auth).catch(console.error);
 
-  const userRef = ref(db, "users/" + player.id);
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      player.id = user.uid;
 
-  get(userRef).then(snapshot => {
-    const data = snapshot.val();
-
-    if (data && data.name) {
-      player.name = data.name;
-      player.x = data.x ?? 100;
-      player.y = data.y ?? 100;
-    } else {
-      let name = "";
-      while (!name || name.trim().length < 2) {
-        name = prompt("Ton pseudo ?");
+      // 🔁 Récupère pseudo et position locale
+      const saved = localStorage.getItem("playerData");
+      if (saved) {
+        const { name, x, y } = JSON.parse(saved);
+        player.name = name;
+        player.x = x;
+        player.y = y;
+      } else {
+        // Demande le pseudo une seule fois
+        let name = "";
+        while (!name || name.length < 2) {
+          name = prompt("Ton pseudo ?").trim();
+        }
+        player.name = name;
+        localStorage.setItem("playerData", JSON.stringify({
+          name: player.name,
+          x: player.x,
+          y: player.y
+        }));
       }
-      player.name = name.trim();
-      player.x = 100;
-      player.y = 100;
 
-      set(userRef, {
-        name: player.name,
-        skin: player.skin || "default",
-        gold: player.gold || 0,
-        x: player.x,
-        y: player.y
-      });
+      initFirebase(player);
+      if (callback) callback();
     }
-
-    initFirebase(player);
-    if (callback) callback();
   });
 }
 
@@ -65,7 +62,14 @@ function initFirebase(player) {
   playerRef = ref(db, "players/" + player.id);
   onDisconnect(playerRef).remove();
 
-  // Sauvegarde position en temps réel
+  // ✅ Infos persistantes (ne les écrase qu’à la 1ère co)
+  set(ref(db, "users/" + player.id), {
+    name: player.name,
+    skin: player.skin || "default",
+    gold: player.gold || 0
+  });
+
+  // ✅ Position temps réel
   set(playerRef, {
     name: player.name,
     x: player.x,
@@ -84,21 +88,19 @@ function initFirebase(player) {
 
 export function syncPlayerData(player) {
   if (playerRef) {
+    // Sauvegarde localement aussi
+    localStorage.setItem("playerData", JSON.stringify({
+      name: player.name,
+      x: player.x,
+      y: player.y
+    }));
+
     set(playerRef, {
       name: player.name,
       x: player.x,
       y: player.y
     });
   }
-
-  // Enregistre aussi dans "users" pour persistance
-  set(ref(db, "users/" + player.id), {
-    name: player.name,
-    skin: player.skin || "default",
-    gold: player.gold || 0,
-    x: player.x,
-    y: player.y
-  });
 }
 
 export function getOtherPlayers() {
