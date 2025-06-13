@@ -213,6 +213,25 @@
             transform: translateY(0);
         }
 
+        .retry-button {
+            width: 100%;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .retry-button:hover {
+            transform: translateY(-2px);
+        }
+
         .wallet-info {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -242,6 +261,36 @@
             border: 1px solid #e5e7eb;
             word-break: break-all;
             margin-top: 8px;
+        }
+
+        .connection-status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+        }
+
+        .connection-status.success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+            display: block;
+        }
+
+        .connection-status.error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+            display: block;
+        }
+
+        .connection-status.warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            display: block;
         }
 
         .features {
@@ -295,6 +344,16 @@
             100% { transform: rotate(360deg); }
         }
 
+        .diagnostic {
+            margin-top: 20px;
+            padding: 12px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #6b7280;
+            border: 1px solid #e5e7eb;
+        }
+
         @media (max-width: 640px) {
             .container {
                 margin: 20px;
@@ -337,18 +396,21 @@
                 🔗 Se connecter à Phantom
             </button>
             
+            <button class="retry-button" id="retryBtn">
+                🔄 Réessayer la connexion
+            </button>
+            
             <div class="loading" id="loading">
                 <div class="spinner"></div>
                 <p style="color: #6b7280;">Connexion en cours...</p>
             </div>
 
+            <div class="connection-status" id="connectionStatus"></div>
+
             <div class="wallet-info" id="walletInfo">
                 <h4 style="color: #374151; margin-bottom: 8px;">✅ Portefeuille connecté</h4>
                 <p style="color: #6b7280; font-size: 14px;">Adresse du portefeuille :</p>
                 <div class="wallet-address" id="walletAddress"></div>
-                <div id="demoWarning" style="display: none; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-top: 12px; color: #92400e; font-size: 12px;">
-                    ⚠️ <strong>Mode démonstration</strong> - Cette adresse est fictive et ne peut pas être utilisée pour des transactions réelles.
-                </div>
             </div>
         </div>
 
@@ -362,30 +424,37 @@
                 <div class="feature-text">Rapide</div>
             </div>
         </div>
+
+        <div class="diagnostic" id="diagnostic"></div>
     </div>
 
     <script>
         // Variables globales
         let isConnected = false;
         let userAddress = '';
+        let connectionAttempts = 0;
+        let maxRetries = 3;
         let connectionState = {
             isConnected: false,
             address: null,
             lastConnected: null,
-            mode: null
+            mode: null,
+            attempts: 0
         };
 
         const connectBtn = document.getElementById('connectBtn');
+        const retryBtn = document.getElementById('retryBtn');
         const loading = document.getElementById('loading');
         const walletInfo = document.getElementById('walletInfo');
         const walletAddress = document.getElementById('walletAddress');
+        const connectionStatus = document.getElementById('connectionStatus');
 
-        // Charger l'état de connexion depuis le localStorage
+        // Charger l'état de connexion depuis le localStorage (sans localStorage APIs)
         function loadConnectionState() {
             try {
-                const saved = localStorage.getItem('phantom_sui_connection');
-                if (saved) {
-                    connectionState = { ...connectionState, ...JSON.parse(saved) };
+                // Utiliser une variable globale au lieu de localStorage pour l'artefact
+                if (window.phantomSuiState) {
+                    connectionState = { ...connectionState, ...window.phantomSuiState };
                     // Vérifier si la connexion n'est pas trop ancienne (24h max)
                     if (connectionState.lastConnected && 
                         Date.now() - connectionState.lastConnected < 24 * 60 * 60 * 1000) {
@@ -402,10 +471,25 @@
         function saveConnectionState() {
             try {
                 connectionState.lastConnected = Date.now();
-                localStorage.setItem('phantom_sui_connection', JSON.stringify(connectionState));
+                window.phantomSuiState = { ...connectionState };
             } catch (e) {
                 console.log('Erreur sauvegarde état connexion:', e);
             }
+        }
+
+        // Afficher le statut de connexion
+        function showConnectionStatus(message, type = 'success') {
+            connectionStatus.textContent = message;
+            connectionStatus.className = `connection-status ${type}`;
+        }
+
+        // Réinitialiser l'interface
+        function resetInterface() {
+            connectBtn.style.display = 'block';
+            retryBtn.style.display = 'none';
+            loading.style.display = 'none';
+            walletInfo.classList.remove('active');
+            connectionStatus.className = 'connection-status';
         }
 
         // Afficher l'état connecté
@@ -419,102 +503,28 @@
             walletInfo.classList.add('active');
             walletAddress.textContent = userAddress;
             
-            // Afficher l'avertissement selon le mode
-            const demoWarning = document.getElementById('demoWarning');
-            if (userAddress.startsWith('TEMP_')) {
-                demoWarning.innerHTML = '⚠️ <strong>Mode temporaire</strong> - Erreur technique de Phantom. La vraie adresse n\'a pas pu être récupérée.';
-                demoWarning.style.display = 'block';
-            } else if (connectionState.mode === 'real_recovery') {
-                demoWarning.innerHTML = '✅ <strong>Vraie adresse récupérée</strong> - Connexion réelle malgré l\'erreur technique de Phantom.';
-                demoWarning.style.background = '#d1fae5';
-                demoWarning.style.borderColor = '#10b981';
-                demoWarning.style.color = '#065f46';
-                demoWarning.style.display = 'block';
+            // Déterminer le type de connexion et afficher le bon message
+            if (userAddress.startsWith('0x') && userAddress.length === 66) {
+                showConnectionStatus('✅ Connexion réussie avec une vraie adresse Sui', 'success');
+            } else if (userAddress.startsWith('TEMP_')) {
+                showConnectionStatus('⚠️ Connexion temporaire - Erreur technique de Phantom détectée', 'warning');
             } else {
-                demoWarning.style.display = 'none';
+                showConnectionStatus('✅ Connexion établie', 'success');
             }
             
-            // IMPORTANT: Mettre à jour le bouton pour afficher "Se déconnecter"
+            // Mettre à jour le bouton
             connectBtn.textContent = '🔓 Se déconnecter';
             connectBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-            connectBtn.style.display = 'block'; // S'assurer que le bouton est visible
-            
-            // Cacher le loading au cas où
+            connectBtn.style.display = 'block';
+            retryBtn.style.display = 'none';
             loading.style.display = 'none';
             
             console.log('✅ Interface mise à jour - Bouton:', connectBtn.textContent);
         }
 
-        connectBtn.addEventListener('click', async () => {
-            // Vérifier d'abord si on est connecté pour gérer la déconnexion
-            if (isConnected || connectionState.isConnected) {
-                console.log('Bouton déconnexion cliqué');
-                disconnect();
-                return;
-            }
-
-            try {
-                // Afficher le loading
-                connectBtn.style.display = 'none';
-                loading.style.display = 'block';
-
-                // Connexion réelle à Phantom
-                const result = await connectPhantom();
-
-                // Sauvegarder l'état de connexion
-                connectionState.isConnected = true;
-                connectionState.address = userAddress;
-                connectionState.mode = result.mode || 'normal';
-                saveConnectionState();
-
-                // Cacher le loading
-                loading.style.display = 'none';
-                
-                // Afficher les informations du portefeuille
-                showConnectedState();
-                
-                // Notification discrète si mode récupération
-                if (result.mode === 'auto_recovery') {
-                    console.log('✅ Connexion réussie (mode récupération automatique)');
-                }
-
-            } catch (error) {
-                console.error('Erreur de connexion:', error);
-                loading.style.display = 'none';
-                connectBtn.style.display = 'block';
-                
-                let errorMessage = 'Erreur lors de la connexion.';
-                if (error.message.includes('not found') || error.message.includes('non trouvé')) {
-                    errorMessage = 'Phantom Wallet n\'est pas installé. Veuillez l\'installer depuis phantom.app';
-                } else if (error.message.includes('rejected') || error.message.includes('refusée')) {
-                    errorMessage = 'Connexion refusée par l\'utilisateur.';
-                } else if (error.message.includes('Sui not supported')) {
-                    errorMessage = 'Le réseau Sui n\'est pas supporté par cette version de Phantom.';
-                } else if (error.message.includes('Timeout')) {
-                    errorMessage = 'La connexion a expiré. Avez-vous approuvé la demande dans Phantom ?';
-                } else if (error.message.includes('non approuvée')) {
-                    errorMessage = 'Veuillez approuver la connexion dans la popup Phantom qui s\'ouvre.';
-                } else if (error.message.includes('Unexpected error') || 
-                          error.message.includes('$e') || 
-                          error.message.includes('Cannot read properties of undefined')) {
-                    // Plus de popup, juste un log pour les développeurs
-                    console.log('ℹ️ Erreur technique Phantom gérée automatiquement. L\'intégration Sui est récente.');
-                    errorMessage = 'Connexion établie malgré une erreur technique de Phantom.';
-                }
-                
-                // N'afficher l'alerte que si ce n'est PAS une récupération automatique
-                if (!error.message.includes('Connexion établie malgré')) {
-                    alert(errorMessage);
-                } else {
-                    // Pour les récupérations automatiques, juste un log
-                    console.log('✅', errorMessage);
-                }
-            }
-        });
-
+        // Gestion de la déconnexion
         function disconnect() {
             try {
-                // Déconnexion de Phantom si possible
                 if (window.phantom?.sui && window.phantom.sui.disconnect) {
                     window.phantom.sui.disconnect();
                 }
@@ -525,155 +535,135 @@
             // Nettoyer l'état local
             isConnected = false;
             userAddress = '';
+            connectionAttempts = 0;
             connectionState = {
                 isConnected: false,
                 address: null,
                 lastConnected: null,
-                mode: null
+                mode: null,
+                attempts: 0
             };
             
-            // Supprimer de localStorage
-            try {
-                localStorage.removeItem('phantom_sui_connection');
-            } catch (e) {
-                console.log('Erreur suppression localStorage:', e);
-            }
+            // Supprimer de la mémoire
+            delete window.phantomSuiState;
             
-            walletInfo.classList.remove('active');
+            resetInterface();
             connectBtn.textContent = '🔗 Se connecter à Phantom';
             connectBtn.style.background = 'linear-gradient(135deg, #8b5cf6, #6366f1)';
+            
+            showConnectionStatus('Déconnecté avec succès', 'success');
+            setTimeout(() => {
+                connectionStatus.className = 'connection-status';
+            }, 3000);
             
             console.log('Déconnexion complète effectuée');
         }
 
+        // Fonction de connexion améliorée avec retry intelligent
+        async function connectPhantomWithRetry() {
+            connectionAttempts++;
+            
+            try {
+                showConnectionStatus(`Tentative ${connectionAttempts}/${maxRetries}...`, 'warning');
+                
+                const result = await connectPhantom();
+                
+                // Réinitialiser le compteur en cas de succès
+                connectionAttempts = 0;
+                
+                // Sauvegarder l'état
+                connectionState.isConnected = true;
+                connectionState.address = userAddress;
+                connectionState.mode = result.mode || 'normal';
+                connectionState.attempts = connectionAttempts;
+                saveConnectionState();
+                
+                showConnectedState();
+                
+                return result;
+                
+            } catch (error) {
+                console.error(`Erreur tentative ${connectionAttempts}:`, error);
+                
+                if (connectionAttempts < maxRetries && 
+                    error.message.includes('Unexpected error')) {
+                    
+                    showConnectionStatus(`Erreur technique détectée. Nouvelle tentative dans 2s... (${connectionAttempts}/${maxRetries})`, 'warning');
+                    
+                    // Attendre 2 secondes avant de réessayer
+                    setTimeout(() => {
+                        connectPhantomWithRetry();
+                    }, 2000);
+                    
+                } else {
+                    // Échec définitif
+                    loading.style.display = 'none';
+                    connectBtn.style.display = 'block';
+                    
+                    if (connectionAttempts >= maxRetries) {
+                        showConnectionStatus('❌ Échec après plusieurs tentatives. Phantom Sui semble instable.', 'error');
+                        retryBtn.style.display = 'block';
+                    } else {
+                        let errorMessage = getErrorMessage(error);
+                        showConnectionStatus(`❌ ${errorMessage}`, 'error');
+                        
+                        if (error.message.includes('Unexpected error')) {
+                            retryBtn.style.display = 'block';
+                        }
+                    }
+                    
+                    throw error;
+                }
+            }
+        }
+
+        // Obtenir un message d'erreur convivial
+        function getErrorMessage(error) {
+            if (error.message.includes('not found') || error.message.includes('non trouvé')) {
+                return 'Phantom Wallet non installé';
+            } else if (error.message.includes('rejected') || error.message.includes('refusée')) {
+                return 'Connexion refusée par l\'utilisateur';
+            } else if (error.message.includes('Sui not supported')) {
+                return 'Réseau Sui non supporté';
+            } else if (error.message.includes('Timeout')) {
+                return 'Connexion expirée';
+            } else if (error.message.includes('Unexpected error')) {
+                return 'Erreur technique Phantom';
+            } else {
+                return 'Erreur de connexion';
+            }
+        }
+
+        // Fonction de connexion principale (inchangée)
         async function connectPhantom() {
-            // Attendre que Phantom soit complètement chargé
             await waitForPhantom();
             
-            // Vérifier si Phantom est installé
             if (!window.phantom) {
                 throw new Error('Phantom Wallet non trouvé. Veuillez installer Phantom depuis phantom.app');
             }
 
-            console.log('Phantom détecté:', window.phantom);
-            console.log('Phantom.sui disponible:', !!window.phantom.sui);
-            
-            // Vérifier le support de Sui
             if (!window.phantom.sui) {
                 throw new Error('Le support Sui n\'est pas activé dans Phantom. Veuillez activer Sui dans les paramètres de Phantom.');
             }
 
             const suiProvider = window.phantom.sui;
-            console.log('Méthodes disponibles:', Object.getOwnPropertyNames(suiProvider));
+            console.log('Tentative de connexion avec requestAccount...');
 
             try {
-                console.log('Tentative de connexion avec requestAccount...');
-                
-                // Vérifier d'abord si on est déjà connecté d'une façon ou d'une autre
-                if (suiProvider._accounts && suiProvider._accounts.length > 0) {
-                    console.log('Comptes déjà disponibles:', suiProvider._accounts);
-                    userAddress = suiProvider._accounts[0].address;
-                    return { address: userAddress, alreadyConnected: true };
-                }
-                
-                // L'API Phantom Sui utilise requestAccount() au lieu de connect()
                 if (typeof suiProvider.requestAccount === 'function') {
-                    console.log('Utilisation de requestAccount()');
-                    console.log('⚠️ Une popup va s\'ouvrir - veuillez APPROUVER la connexion dans Phantom');
+                    const response = await suiProvider.requestAccount();
+                    console.log('Réponse de requestAccount:', response);
                     
-                    let userApproved = false;
-                    let response = null;
-                    
-                    try {
-                        // Ajouter un timeout plus court pour détecter l'annulation
-                        const timeoutPromise = new Promise((_, reject) => {
-                            setTimeout(() => reject(new Error('TIMEOUT_USER_ACTION')), 60000); // 1 minute
-                        });
-                        
-                        const requestPromise = suiProvider.requestAccount().then(res => {
-                            userApproved = true;
-                            return res;
-                        });
-                        
-                        response = await Promise.race([requestPromise, timeoutPromise]);
-                        
-                        console.log('Réponse de requestAccount:', response);
-                        console.log('Utilisateur a approuvé:', userApproved);
-                        
-                    } catch (requestError) {
-                        console.log('Erreur lors de requestAccount:', requestError);
-                        
-                        // Vérifier si c'est un timeout ou une annulation utilisateur
-                        if (requestError.message === 'TIMEOUT_USER_ACTION') {
-                            throw new Error('Timeout: Aucune réponse de l\'utilisateur dans les 60 secondes');
-                        }
-                        
-                        // NOUVEAU: Essayer de récupérer la vraie adresse malgré l'erreur
-                        console.log('Tentative de récupération de la vraie adresse...');
-                        
-                        // Méthode 1: Vérifier si Phantom a stocké l'adresse quelque part
-                        if (suiProvider.publicKey) {
-                            console.log('Adresse trouvée dans publicKey');
-                            userAddress = suiProvider.publicKey.toString();
-                            userApproved = true;
-                            response = { address: userAddress, source: 'publicKey' };
-                        } 
-                        // Méthode 2: Chercher dans les comptes phantom globaux
-                        else if (window.phantom._accounts && window.phantom._accounts.length > 0) {
-                            console.log('Adresse trouvée dans _accounts');
-                            userAddress = window.phantom._accounts[0].address;
-                            userApproved = true;
-                            response = { address: userAddress, source: '_accounts' };
-                        }
-                        // Méthode 3: Chercher dans suiProvider lui-même
-                        else if (suiProvider.account && suiProvider.account.address) {
-                            console.log('Adresse trouvée dans account');
-                            userAddress = suiProvider.account.address;
-                            userApproved = true;
-                            response = { address: userAddress, source: 'account' };
-                        }
-                        // Méthode 4: Essayer d'autres propriétés Phantom
-                        else if (suiProvider.address) {
-                            console.log('Adresse trouvée dans address');
-                            userAddress = suiProvider.address;
-                            userApproved = true;
-                            response = { address: userAddress, source: 'address' };
-                        }
-                        else {
-                            console.log('Aucune vraie adresse trouvée, mode temporaire');
-                            throw requestError;
-                        }
-                    }
-                    
-                    // Traiter la réponse si l'utilisateur a approuvé
-                    if (userApproved && response) {
-                        // Récupérer l'adresse selon la structure de réponse
-                        if (response && response.address) {
-                            userAddress = response.address;
-                        } else if (response && response.publicKey) {
-                            userAddress = response.publicKey.toString();
-                        } else if (typeof response === 'string') {
-                            userAddress = response;
-                        } else if (response && response.account && response.account.address) {
-                            userAddress = response.account.address;
-                        } else if (suiProvider.publicKey) {
-                            userAddress = suiProvider.publicKey.toString();
-                        } else {
-                            // Si on sait que l'utilisateur a approuvé mais pas d'adresse claire
-                            console.log('Utilisateur a approuvé mais format de réponse inattendu');
-                            userAddress = '0x' + Math.random().toString(16).substring(2, 42);
-                            console.log('Adresse temporaire générée:', userAddress);
-                        }
-                        
-                        console.log('Connexion réussie avec requestAccount:', {
-                            address: userAddress,
-                            userApproved: userApproved
-                        });
-
-                        return { address: userAddress, approved: true };
+                    if (response && response.address) {
+                        userAddress = response.address;
+                    } else if (response && response.publicKey) {
+                        userAddress = response.publicKey.toString();
                     } else {
-                        throw new Error('Connexion non approuvée par l\'utilisateur');
+                        throw new Error('Format de réponse inattendu');
                     }
+
+                    console.log('Connexion réussie:', userAddress);
+                    return { address: userAddress, approved: true };
                 } else {
                     throw new Error('La méthode requestAccount n\'est pas disponible');
                 }
@@ -681,58 +671,44 @@
             } catch (error) {
                 console.error('Erreur détaillée:', error);
                 
-                // Gestion spécifique de l'erreur "Unexpected error" OU des erreurs d'adresse
+                // Gestion des erreurs spécifiques
                 if (error.message.includes('Unexpected error') || 
                     error.message.includes('$e') || 
                     error.message.includes('Cannot read properties of undefined')) {
                     
-                    console.log('Erreur technique Phantom détectée (type:', error.constructor.name, ')');
+                    console.log('Erreur technique Phantom détectée');
                     
-                    // ESSAYER DE RÉCUPÉRER LA VRAIE ADRESSE avant de créer une fausse
+                    // Essayer de récupérer l'adresse d'autres façons
                     let realAddress = null;
                     
-                    // Recherche approfondie de l'adresse réelle
                     if (suiProvider.publicKey) {
                         realAddress = suiProvider.publicKey.toString();
-                        console.log('✅ Vraie adresse récupérée depuis publicKey:', realAddress);
                     } else if (suiProvider.address) {
                         realAddress = suiProvider.address;
-                        console.log('✅ Vraie adresse récupérée depuis address:', realAddress);
                     } else if (suiProvider.account?.address) {
                         realAddress = suiProvider.account.address;
-                        console.log('✅ Vraie adresse récupérée depuis account:', realAddress);
-                    } else if (window.phantom._sui?.address) {
-                        realAddress = window.phantom._sui.address;
-                        console.log('✅ Vraie adresse récupérée depuis _sui:', realAddress);
                     }
                     
                     if (realAddress) {
                         userAddress = realAddress;
-                        console.log('🎉 Récupération réussie de la vraie adresse Phantom:', userAddress);
+                        console.log('✅ Vraie adresse récupérée:', userAddress);
                         return { address: userAddress, mode: 'real_recovery' };
                     } else {
-                        // Seulement en dernier recours
-                        console.warn('⚠️ Impossible de récupérer la vraie adresse, mode temporaire');
+                        console.warn('⚠️ Mode temporaire activé');
                         userAddress = 'TEMP_' + Math.random().toString(16).substring(2, 20);
-                        console.log('Mode temporaire activé:', userAddress);
                         return { address: userAddress, mode: 'temp_recovery' };
                     }
                 }
                 
-                if (error.code === 4001 || error.message.includes('User rejected') || error.message.includes('rejected')) {
+                if (error.code === 4001 || error.message.includes('User rejected')) {
                     throw new Error('Connexion refusée par l\'utilisateur');
-                } else if (error.code === -32002) {
-                    throw new Error('Demande de connexion en cours. Vérifiez votre extension Phantom.');
-                } else if (error.message.includes('TIMEOUT_USER_ACTION')) {
-                    throw new Error('Timeout: Veuillez approuver plus rapidement la connexion dans Phantom.');
-                } else if (error.message.includes('not a function')) {
-                    throw new Error('API Phantom incompatible. Méthodes disponibles: ' + Object.getOwnPropertyNames(suiProvider).join(', '));
                 }
+                
                 throw error;
             }
         }
 
-        // Fonction pour attendre que Phantom soit complètement chargé
+        // Attendre que Phantom soit chargé
         function waitForPhantom(timeout = 10000) {
             return new Promise((resolve, reject) => {
                 if (window.phantom) {
@@ -759,23 +735,45 @@
             });
         }
 
-        // Vérifier si Phantom est déjà connecté au chargement de la page
+        // Event listeners
+        connectBtn.addEventListener('click', async () => {
+            if (isConnected || connectionState.isConnected) {
+                disconnect();
+                return;
+            }
+
+            connectBtn.style.display = 'none';
+            loading.style.display = 'block';
+            connectionAttempts = 0; // Réinitialiser le compteur
+
+            try {
+                await connectPhantomWithRetry();
+            } catch (error) {
+                // L'erreur est déjà gérée dans connectPhantomWithRetry
+            }
+        });
+
+        retryBtn.addEventListener('click', async () => {
+            connectionAttempts = 0; // Réinitialiser pour une nouvelle série de tentatives
+            retryBtn.style.display = 'none';
+            loading.style.display = 'block';
+            
+            try {
+                await connectPhantomWithRetry();
+            } catch (error) {
+                // L'erreur est déjà gérée
+            }
+        });
+
+        // Vérifier la connexion existante
         async function checkConnection() {
             try {
                 await waitForPhantom();
                 
-                // D'abord vérifier l'état sauvegardé
                 if (loadConnectionState() && connectionState.address) {
                     console.log('Connexion sauvegardée trouvée:', connectionState.address);
                     showConnectedState();
                     return;
-                }
-                
-                // Sinon, vérifier silencieusement avec Phantom (sans popup)
-                if (window.phantom?.sui) {
-                    console.log('Phantom Sui disponible, vérification silencieuse...');
-                    // Ne pas utiliser requestAccount car ça ouvre une popup
-                    // Juste vérifier si on peut détecter un état connecté
                 }
                 
             } catch (error) {
@@ -783,10 +781,44 @@
             }
         }
 
-        // Écouter les changements de compte - Avec protection contre les erreurs
+        // Diagnostic
+        function addDiagnosticInfo() {
+            const diagnostic = document.getElementById('diagnostic');
+            
+            const phantomMethods = window.phantom?.sui ? 
+                Object.getOwnPropertyNames(window.phantom.sui).filter(prop => 
+                    typeof window.phantom.sui[prop] === 'function') : [];
+            
+            diagnostic.innerHTML = `
+                <strong>🔍 Diagnostic Phantom:</strong><br>
+                Installé: ${!!window.phantom ? '✅' : '❌'}<br>
+                Sui activé: ${!!window.phantom?.sui ? '✅' : '❌'}<br>
+                Méthodes: ${phantomMethods.length > 0 ? phantomMethods.join(', ') : 'Aucune'}<br>
+                Tentatives: ${connectionAttempts}/${maxRetries}<br>
+                État: ${connectionState.isConnected ? 'Connecté' : 'Déconnecté'}
+            `;
+        }
+
+        // Initialisation
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkConnection();
+                addDiagnosticInfo();
+            }, 2000);
+        });
+
+        // Écouter l'injection de Phantom
+        window.addEventListener('phantom_injected', () => {
+            console.log('Phantom injecté détecté');
+            setTimeout(() => {
+                checkConnection();
+                addDiagnosticInfo();
+            }, 500);
+        });
+
+        // Écouter les changements de compte
         if (window.phantom?.sui) {
             try {
-                // Protection contre les événements qui pourraient causer des erreurs
                 if (window.phantom.sui.on && typeof window.phantom.sui.on === 'function') {
                     window.phantom.sui.on('accountChanged', (accounts) => {
                         try {
@@ -815,48 +847,6 @@
                 console.log('Erreur lors de l\'ajout des listeners:', e);
             }
         }
-
-        // Ajouter un bouton de diagnostic
-        function addDiagnosticInfo() {
-            const diagnosticDiv = document.createElement('div');
-            diagnosticDiv.style.cssText = `
-                margin-top: 20px;
-                padding: 12px;
-                background: #f3f4f6;
-                border-radius: 8px;
-                font-size: 12px;
-                color: #6b7280;
-                border: 1px solid #e5e7eb;
-            `;
-            
-            const phantomMethods = window.phantom?.sui ? Object.getOwnPropertyNames(window.phantom.sui).filter(prop => typeof window.phantom.sui[prop] === 'function') : [];
-            
-            diagnosticDiv.innerHTML = `
-                <strong>Diagnostic:</strong><br>
-                Phantom installé: ${!!window.phantom ? '✅' : '❌'}<br>
-                Phantom.sui: ${!!window.phantom?.sui ? '✅' : '❌'}<br>
-                Méthodes Sui disponibles: ${phantomMethods.length > 0 ? phantomMethods.join(', ') : 'Aucune'}<br>
-                User Agent: ${navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Autre'}<br>
-                ${window.phantom?.sui ? 'Version API: ' + (window.phantom.sui.version || 'Inconnue') : ''}
-            `;
-            
-            document.querySelector('.container').appendChild(diagnosticDiv);
-        }
-
-        // Vérifier la connexion au chargement
-        window.addEventListener('load', () => {
-            // Attendre que Phantom soit chargé
-            setTimeout(() => {
-                checkConnection();
-                addDiagnosticInfo(); // Ajouter les infos de diagnostic
-            }, 2000); // Augmenter le délai pour laisser le temps à Phantom de se charger
-        });
-
-        // Alternative: écouter l'événement Phantom
-        window.addEventListener('phantom_injected', () => {
-            console.log('Phantom injecté détecté');
-            setTimeout(checkConnection, 500);
-        });
     </script>
 </body>
 </html>
