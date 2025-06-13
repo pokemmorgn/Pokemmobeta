@@ -335,8 +335,24 @@
         installUrl: 'https://chromewebstore.google.com/detail/slush-%E2%80%94-a-sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil',
         detectors: ['suiWallet', 'slush', 'slushWallet'],
         connectMethod: async (provider) => {
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
+          // Essayer plusieurs méthodes de connexion pour Slush
+          try {
+            if (provider.connect) {
+              const result = await provider.connect();
+              return result.accounts?.[0] || result.address || result;
+            }
+            if (provider.requestConnection) {
+              const result = await provider.requestConnection();
+              return result.accounts?.[0] || result.address || result;
+            }
+            if (provider.enable) {
+              const result = await provider.enable();
+              return result.accounts?.[0] || result.address || result;
+            }
+            throw new Error("No suitable connection method found");
+          } catch (error) {
+            throw new Error(`Slush connection failed: ${error.message}`);
+          }
         }
       },
       {
@@ -347,8 +363,19 @@
         installUrl: 'https://phantom.app/',
         detectors: ['phantom'],
         connectMethod: async (provider) => {
-          const result = await provider.connect({ onlyIfTrusted: false });
-          return result.publicKey?.toString() || result.accounts?.[0] || 'Connected to Phantom';
+          try {
+            if (provider.connect) {
+              const result = await provider.connect({ onlyIfTrusted: false });
+              return result.publicKey?.toString() || result.accounts?.[0] || 'Connected to Phantom';
+            }
+            if (provider.request) {
+              const result = await provider.request({ method: 'connect' });
+              return result.accounts?.[0] || result.address || result;
+            }
+            throw new Error("No suitable connection method found");
+          } catch (error) {
+            throw new Error(`Phantom connection failed: ${error.message}`);
+          }
         }
       },
       {
@@ -405,23 +432,97 @@
     function detectWallets() {
       const detectedWallets = [];
       
+      // Fonction de debug pour voir TOUS les objets window
+      const debugAllWindowObjects = () => {
+        const allObjects = {};
+        const walletLikeObjects = {};
+        
+        for (const key in window) {
+          try {
+            const obj = window[key];
+            allObjects[key] = typeof obj;
+            
+            // Rechercher les objets qui peuvent être des wallets
+            if (obj && typeof obj === 'object') {
+              if (typeof obj.connect === 'function' || 
+                  typeof obj.enable === 'function' ||
+                  typeof obj.request === 'function' ||
+                  key.toLowerCase().includes('wallet') ||
+                  key.toLowerCase().includes('sui') ||
+                  key.toLowerCase().includes('phantom') ||
+                  key.toLowerCase().includes('slush')) {
+                
+                walletLikeObjects[key] = {
+                  type: typeof obj,
+                  hasConnect: !!obj.connect,
+                  hasEnable: !!obj.enable,
+                  hasRequest: !!obj.request,
+                  methods: Object.getOwnPropertyNames(obj).slice(0, 10) // Premiers 10 pour éviter spam
+                };
+              }
+            }
+          } catch (e) {
+            // Ignorer les erreurs d'accès
+          }
+        }
+        
+        console.log('🔍 ALL WINDOW OBJECTS:', allObjects);
+        console.log('🎯 WALLET-LIKE OBJECTS:', walletLikeObjects);
+        return walletLikeObjects;
+      };
+
+      // Exécuter le debug
+      const walletLikeObjects = debugAllWindowObjects();
+      
       for (const config of WALLET_CONFIGS) {
         let provider = null;
         let isInstalled = false;
+        let detectedVia = null;
 
-        // Essayer chaque détecteur
+        // Essayer chaque détecteur configuré
         for (const detector of config.detectors) {
           if (window[detector]) {
             provider = window[detector];
             isInstalled = true;
+            detectedVia = detector;
             break;
+          }
+        }
+
+        // Si pas trouvé avec les détecteurs standards, essayer la recherche dynamique
+        if (!isInstalled && config.id === 'slush') {
+          // Recherche spéciale pour Slush
+          for (const [key, obj] of Object.entries(walletLikeObjects)) {
+            if (key.toLowerCase().includes('sui') || 
+                key.toLowerCase().includes('slush') ||
+                (obj.methods && obj.methods.some(m => m.includes('sui') || m.includes('Sui')))) {
+              provider = window[key];
+              isInstalled = true;
+              detectedVia = `${key} (dynamic detection)`;
+              console.log(`🎯 Found Slush via dynamic detection: ${key}`, window[key]);
+              break;
+            }
+          }
+        }
+
+        // Recherche spéciale pour Phantom
+        if (!isInstalled && config.id === 'phantom') {
+          for (const [key, obj] of Object.entries(walletLikeObjects)) {
+            if (key.toLowerCase().includes('phantom')) {
+              provider = window[key];
+              isInstalled = true;
+              detectedVia = `${key} (dynamic detection)`;
+              console.log(`👻 Found Phantom via dynamic detection: ${key}`, window[key]);
+              break;
+            }
           }
         }
 
         detectedWallets.push({
           ...config,
           provider,
-          isInstalled
+          isInstalled,
+          detectedVia
         });
       }
 
@@ -476,7 +577,7 @@
             <div class="wallet-info">
               <div class="wallet-name">${wallet.name}</div>
               <div class="wallet-status ${wallet.isInstalled ? 'installed' : 'not-installed'}">
-                ${wallet.isInstalled ? '✅ Installed' : '❌ Not installed'}
+                ${wallet.isInstalled ? `✅ Found via: ${wallet.detectedVia}` : '❌ Not installed'}
               </div>
             </div>
           `;
