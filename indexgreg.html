@@ -435,19 +435,41 @@
         }
 
         async function connectPhantom() {
+            // Attendre que Phantom soit complètement chargé
+            await waitForPhantom();
+            
             // Vérifier si Phantom est installé
             if (!window.phantom) {
                 throw new Error('Phantom Wallet non trouvé. Veuillez installer Phantom depuis phantom.app');
             }
 
-            // Vérifier le support de Sui
-            if (!window.phantom.sui) {
-                throw new Error('Sui not supported. Veuillez mettre à jour Phantom ou activer le support Sui.');
+            console.log('Phantom détecté:', window.phantom);
+            console.log('Phantom.sui disponible:', !!window.phantom.sui);
+
+            // Vérifier le support de Sui avec différentes méthodes
+            let suiProvider = null;
+            
+            if (window.phantom.sui) {
+                suiProvider = window.phantom.sui;
+            } else if (window.phantom.solana) {
+                // Fallback si Sui n'est pas directement disponible
+                console.log('Sui non disponible, tentative avec l\'API générique...');
+                throw new Error('Le support Sui n\'est pas activé dans Phantom. Veuillez activer Sui dans les paramètres de Phantom.');
+            } else {
+                throw new Error('Aucune API de portefeuille détectée dans Phantom.');
             }
 
             try {
+                console.log('Tentative de connexion...');
+                
+                // Vérifier que la méthode connect existe
+                if (typeof suiProvider.connect !== 'function') {
+                    throw new Error('La méthode connect n\'est pas disponible. Veuillez mettre à jour Phantom.');
+                }
+
                 // Demander la connexion
-                const response = await window.phantom.sui.connect();
+                const response = await suiProvider.connect();
+                console.log('Réponse de connexion:', response);
                 
                 if (!response || !response.accounts || response.accounts.length === 0) {
                     throw new Error('Aucun compte trouvé');
@@ -456,7 +478,6 @@
                 // Récupérer l'adresse du premier compte
                 userAddress = response.accounts[0].address;
                 
-                // Optionnel : récupérer des informations supplémentaires
                 console.log('Connexion réussie:', {
                     address: userAddress,
                     publicKey: response.accounts[0].publicKey
@@ -465,11 +486,42 @@
                 return response;
 
             } catch (error) {
-                if (error.code === 4001) {
+                console.error('Erreur détaillée:', error);
+                
+                if (error.code === 4001 || error.message.includes('User rejected')) {
                     throw new Error('Connexion refusée par l\'utilisateur');
+                } else if (error.message.includes('connect is not a function')) {
+                    throw new Error('Version de Phantom incompatible. Veuillez mettre à jour Phantom.');
                 }
                 throw error;
             }
+        }
+
+        // Fonction pour attendre que Phantom soit complètement chargé
+        function waitForPhantom(timeout = 10000) {
+            return new Promise((resolve, reject) => {
+                if (window.phantom) {
+                    resolve();
+                    return;
+                }
+
+                let attempts = 0;
+                const maxAttempts = timeout / 100;
+
+                const checkPhantom = () => {
+                    attempts++;
+                    
+                    if (window.phantom) {
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        reject(new Error('Timeout: Phantom non détecté'));
+                    } else {
+                        setTimeout(checkPhantom, 100);
+                    }
+                };
+
+                checkPhantom();
+            });
         }
 
         // Vérifier si Phantom est déjà connecté au chargement de la page
