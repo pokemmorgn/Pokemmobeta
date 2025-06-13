@@ -6,14 +6,13 @@ export const player = {
   y: 300,
   size: 30,
   color: 'red',
-  name: prompt("Ton pseudo ?") || "Joueur",
+  name: "",   // vide au départ, sera rempli par Firebase
   skin: "default",
   gold: 0,
   speed: 2
 };
 
 localStorage.setItem("playerId", player.id);
-
 export function updatePlayer() {
   const speed = player.speed;
   let usedKeyboard = false;
