@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.0.0 - Phantom Only
+      v4.0.5 - Phantom Only
     </div>
     
     <div class="main-card">
@@ -172,57 +172,25 @@
       detectors: ['phantom'],
       connectMethod: async (provider) => {
         try {
-          console.log('🔧 Attempting Phantom connection with provider:', provider);
-          console.log('🔧 Provider methods:', Object.getOwnPropertyNames(provider));
+          console.log('🔧 Attempting Phantom SUI connection with provider:', provider);
+          console.log('🔧 Provider structure:', {
+            hasSui: !!provider.sui,
+            suiMethods: provider.sui ? Object.getOwnPropertyNames(provider.sui) : 'No SUI',
+            hasConnect: !!provider.sui?.connect
+          });
           
-          // Méthode 1: SUI spécifique (on l'a trouvé dans les logs !)
+          // UNIQUEMENT SUI - C'est ce qui marche !
           if (provider.sui && provider.sui.connect) {
-            console.log('🔧 Trying provider.sui.connect()');
+            console.log('🔧 Using provider.sui.connect() - SUI ONLY');
             const result = await provider.sui.connect();
             console.log('🔧 SUI Connect result:', result);
             return result.accounts?.[0] || result.address || JSON.stringify(result);
           }
           
-          // Méthode 2: Connection Solana standard
-          if (provider.connect) {
-            console.log('🔧 Trying standard connect()');
-            const result = await provider.connect({ onlyIfTrusted: false });
-            console.log('🔧 Connect result:', result);
-            return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
-          }
-          
-          // Méthode 3: Solana spécifique
-          if (provider.solana && provider.solana.connect) {
-            console.log('🔧 Trying provider.solana.connect()');
-            const result = await provider.solana.connect({ onlyIfTrusted: false });
-            console.log('🔧 Solana Connect result:', result);
-            return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
-          }
-          
-          // Méthode 4: Request method
-          if (provider.request) {
-            console.log('🔧 Trying request method');
-            try {
-              const accounts = await provider.request({ method: 'connect' });
-              return accounts?.[0] || JSON.stringify(accounts);
-            } catch (reqError) {
-              console.log('🔧 Request failed, trying eth_requestAccounts');
-              const accounts = await provider.request({ method: 'eth_requestAccounts' });
-              return accounts?.[0] || JSON.stringify(accounts);
-            }
-          }
-          
-          // Méthode 5: Enable method
-          if (provider.enable) {
-            console.log('🔧 Trying enable()');
-            const result = await provider.enable();
-            return result?.[0] || JSON.stringify(result);
-          }
-          
-          throw new Error(`No connection method worked. Available methods: ${Object.getOwnPropertyNames(provider).join(', ')}`);
+          throw new Error(`SUI provider not found! Available: ${Object.getOwnPropertyNames(provider).join(', ')}`);
         } catch (error) {
-          console.error('🔧 Phantom connection error:', error);
-          throw new Error(`Phantom connection failed: ${error.message}`);
+          console.error('🔧 Phantom SUI connection error:', error);
+          throw new Error(`Phantom SUI connection failed: ${error.message}`);
         }
       }
     };
