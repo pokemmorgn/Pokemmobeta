@@ -1,1 +1,55 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SUI Wallet Connect Example</title>
+  <style>
+    body { background: #181c24; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    #address { margin-top: 20px; font-size: 1.2em; }
+    button { padding: 10px 24px; border-radius: 8px; font-size: 1.1em; border: none; background: #22c55e; color: white; cursor: pointer; }
+    button:disabled { background: #888; }
+  </style>
+</head>
+<body>
+  <button id="connectBtn">Connect Wallet</button>
+  <div id="address"></div>
+  <div id="error" style="color: #f66; margin-top: 12px;"></div>
+  <script>
+    const btn = document.getElementById('connectBtn');
+    const addressDiv = document.getElementById('address');
+    const errorDiv = document.getElementById('error');
+    
+    btn.onclick = async () => {
+      addressDiv.textContent = '';
+      errorDiv.textContent = '';
+      btn.disabled = true;
+      
+      // Prend en compte différents wallets SUI
+      const suiWallet = window.suiWallet || window.sui;
+      if (!suiWallet) {
+        errorDiv.textContent = "No SUI wallet extension found!";
+        btn.disabled = false;
+        return;
+      }
+      
+      try {
+        // Nouvelle API Sui Wallet Standard
+        if (suiWallet.requestAccounts) {
+          const accounts = await suiWallet.requestAccounts();
+          addressDiv.textContent = "Wallet address: " + accounts[0];
+        } else if (suiWallet.connect) {
+          // API de compatibilité
+          const res = await suiWallet.connect();
+          const accounts = res.accounts || res;
+          addressDiv.textContent = "Wallet address: " + accounts[0];
+        } else {
+          errorDiv.textContent = "Wallet API not recognized!";
+        }
+      } catch (e) {
+        errorDiv.textContent = "Failed to connect: " + (e.message || e);
+      }
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>
