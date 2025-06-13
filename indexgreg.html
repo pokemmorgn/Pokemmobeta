@@ -205,7 +205,7 @@
   </style>
 </head>
 <body>
-  <div class="version-badge">v5.0.0 - Phantom Only</div>
+  <div class="version-badge">      v5.1.0 - SUI Only</div>
   
   <div class="container">
     <div class="main-card">
@@ -270,18 +270,13 @@
     }
 
     async function detectPhantom() {
-      // Vérifier si Phantom est disponible
+      // Vérifier uniquement Phantom SUI
       if (window.phantom && window.phantom.sui) {
-        console.log('👻 Phantom SUI detected directly');
+        console.log('👻 Phantom SUI detected');
         return window.phantom;
       }
 
-      if (window.phantom) {
-        console.log('👻 Phantom detected, checking SUI support...');
-        console.log('Available chains:', Object.keys(window.phantom));
-        return window.phantom;
-      }
-
+      console.log('👻 Phantom SUI not found');
       return null;
     }
 
@@ -306,21 +301,18 @@
         let result;
         let address;
 
-        // Essayer la connexion SUI spécifique d'abord
-        if (phantom.sui && phantom.sui.connect) {
-          console.log('👻 Using Phantom SUI API');
-          result = await phantom.sui.connect();
-          address = result.accounts?.[0] || result.address;
-        } 
-        // Fallback sur l'API Solana si SUI pas disponible
-        else if (phantom.solana && phantom.solana.connect) {
-          console.log('👻 Using Phantom Solana API (fallback)');
-          result = await phantom.solana.connect({ onlyIfTrusted: false });
-          address = result.publicKey?.toString();
+        // Connexion SUI uniquement
+        if (!phantom.sui || !phantom.sui.connect) {
+          throw new Error('Phantom SUI not available. Please enable SUI network in Phantom settings.');
         }
-        else {
-          throw new Error('Phantom SUI not supported. Please enable SUI network in Phantom settings.');
-        }
+
+        console.log('👻 Using Phantom SUI API');
+        console.log('👻 Phantom.sui object:', phantom.sui);
+        console.log('👻 SUI methods:', Object.getOwnPropertyNames(phantom.sui));
+        
+        result = await phantom.sui.connect();
+        console.log('👻 SUI connection result:', result);
+        address = result.accounts?.[0] || result.address;
 
         if (!address) {
           throw new Error('No address returned from Phantom');
@@ -379,17 +371,12 @@
       try {
         const message = `Hello SUI! Signed at ${new Date().toISOString()}`;
         
-        // Utiliser l'API de signature appropriée
-        let signature;
-        if (connectedWallet.sui && connectedWallet.sui.signMessage) {
-          signature = await connectedWallet.sui.signMessage({ message });
-        } else if (connectedWallet.solana && connectedWallet.solana.signMessage) {
-          const encodedMessage = new TextEncoder().encode(message);
-          const result = await connectedWallet.solana.signMessage(encodedMessage);
-          signature = result.signature;
-        } else {
-          throw new Error('Signature not supported');
+        // Utiliser l'API de signature SUI uniquement
+        if (!connectedWallet.sui || !connectedWallet.sui.signMessage) {
+          throw new Error('SUI signature not supported');
         }
+
+        const signature = await connectedWallet.sui.signMessage({ message });
 
         updateStatus(`✍️ Message signed successfully!<div class="address-display">Signature: ${signature}</div>`, 'success');
       } catch (error) {
