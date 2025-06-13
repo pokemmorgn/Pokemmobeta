@@ -145,7 +145,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v4.3.0 - Check Connection Status
+      v4.4.0 - Use Working Method
     </div>
     
     <div class="main-card">
@@ -172,75 +172,37 @@
       detectors: ['phantom'],
       connectMethod: async (provider) => {
         try {
-          console.log('🔧 Attempting Phantom SUI connection with provider:', provider);
-          console.log('🔧 Provider structure:', {
-            hasSui: !!provider.sui,
-            suiMethods: provider.sui ? Object.getOwnPropertyNames(provider.sui) : 'No SUI',
-            hasConnect: !!provider.sui?.connect,
-            suiType: typeof provider.sui,
-            suiValue: provider.sui
-          });
+          console.log('🔧 Attempting Phantom connection with provider:', provider);
+          console.log('🔧 Provider methods:', Object.getOwnPropertyNames(provider));
           
-          // VÉRIFIER D'ABORD SI DÉJÀ CONNECTÉ !
-          if (provider.sui) {
-            console.log('🔧 SUI exists! Checking connection status first...');
-            
-            // Vérifier si déjà connecté
-            try {
-              if (provider.sui.isConnected && provider.sui.isConnected()) {
-                console.log('🔧 Already connected to Phantom SUI!');
-                // Essayer de récupérer le compte existant
-                if (provider.sui.getAccount) {
-                  const existingAccount = await provider.sui.getAccount();
-                  return existingAccount || 'Already connected to Phantom SUI';
-                }
-                return 'Already connected to Phantom SUI';
-              }
-            } catch (statusError) {
-              console.log('🔧 Connection status check failed:', statusError);
-            }
-            
-            // Si pas connecté, essayer de se connecter
-            console.log('🔧 Not connected yet, attempting connection...');
-            
-            if (provider.sui.requestAccount) {
-              console.log('🔧 Using provider.sui.requestAccount() - SUI METHOD FOUND!');
-              try {
-                const result = await provider.sui.requestAccount();
-                console.log('🔧 SUI RequestAccount result:', result);
-                return result.accounts?.[0] || result.address || result || 'Connected to Phantom SUI';
-              } catch (requestError) {
-                console.log('🔧 RequestAccount failed:', requestError);
-                
-                // Si l'erreur contient "User rejected", c'est normal
-                if (requestError.message && requestError.message.toLowerCase().includes('rejected')) {
-                  throw new Error('Connection cancelled by user');
-                }
-                
-                // Sinon essayer d'autres méthodes
-                const availableMethods = Object.getOwnPropertyNames(provider.sui)
-                  .filter(method => typeof provider.sui[method] === 'function');
-                
-                console.log('🔧 Available SUI methods to try:', availableMethods);
-                
-                throw new Error(`Connection failed. Please try:
-                
-1. 🔓 Unlock Phantom wallet first
-2. 🌐 Open Phantom extension manually  
-3. ⚙️ Switch to SUI network in Phantom
-4. 🔄 Refresh page and try again
-
-Error: ${requestError.message}`);
-              }
-            } else {
-              throw new Error(`provider.sui exists but no requestAccount method! Available: ${Object.getOwnPropertyNames(provider.sui).join(', ')}`);
-            }
+          // Méthode 1: SUI spécifique (CELLE QUI MARCHAIT AVANT !)
+          if (provider.sui && provider.sui.connect) {
+            console.log('🔧 Trying provider.sui.connect()');
+            const result = await provider.sui.connect();
+            console.log('🔧 SUI Connect result:', result);
+            return result.accounts?.[0] || result.address || JSON.stringify(result);
           }
           
-          throw new Error(`provider.sui not found! Available providers: ${Object.getOwnPropertyNames(provider).join(', ')}`);
+          // Méthode 2: Connection Solana standard (fallback)
+          if (provider.connect) {
+            console.log('🔧 Trying standard connect()');
+            const result = await provider.connect({ onlyIfTrusted: false });
+            console.log('🔧 Connect result:', result);
+            return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
+          }
+          
+          // Méthode 3: Solana spécifique (autre fallback)
+          if (provider.solana && provider.solana.connect) {
+            console.log('🔧 Trying provider.solana.connect()');
+            const result = await provider.solana.connect({ onlyIfTrusted: false });
+            console.log('🔧 Solana Connect result:', result);
+            return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
+          }
+          
+          throw new Error(`No connection method worked. Available methods: ${Object.getOwnPropertyNames(provider).join(', ')}`);
         } catch (error) {
-          console.error('🔧 Phantom SUI connection error:', error);
-          throw new Error(`Phantom SUI connection failed: ${error.message}`);
+          console.error('🔧 Phantom connection error:', error);
+          throw new Error(`Phantom connection failed: ${error.message}`);
         }
       }
     };
