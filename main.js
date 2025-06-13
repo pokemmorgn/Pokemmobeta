@@ -10,18 +10,25 @@ class GameScene extends Phaser.Scene {
 
     create() {
         console.log("GameScene: create");
-        // Change la couleur de fond du canvas Phaser (rose flashy)
-        this.cameras.main.setBackgroundColor('#ff69b4');
-
-        // GROS texte bien visible au centre
-        this.add.text(400, 300, 'CANVAS OK', {
-            font: "bold 48px Arial",
-            fill: "#fff",
-            backgroundColor: "#222"
+        // Message d'attente d'action utilisateur
+        const instruction = this.add.text(400, 300, 'Appuie ou clique pour lancer le jeu', {
+            font: "bold 32px Arial",
+            fill: "#000",
+            backgroundColor: "#fff"
         }).setOrigin(0.5);
 
-        // GROS carré bleu bien visible
-        this.add.rectangle(400, 450, 200, 200, 0x3498db).setOrigin(0.5);
+        // Attend un clic/tap utilisateur pour afficher le jeu
+        this.input.once('pointerdown', () => {
+            console.log("Interaction utilisateur détectée !");
+            instruction.destroy();
+            this.cameras.main.setBackgroundColor('#ff69b4');
+            this.add.text(400, 300, 'CANVAS OK', {
+                font: "bold 48px Arial",
+                fill: "#fff",
+                backgroundColor: "#222"
+            }).setOrigin(0.5);
+            this.add.rectangle(400, 450, 200, 200, 0x3498db).setOrigin(0.5);
+        });
     }
 
     update() {
@@ -36,7 +43,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: "#b9eaff", // Valeur par défaut, sera écrasée par setBackgroundColor
+    backgroundColor: "#b9eaff",
     parent: null,
     pixelArt: true,
     physics: {
