@@ -11,7 +11,7 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "@colyseus/cloud": "^0.4.29",
+"@colyseus/cloud": "^0.3.2"
     "@colyseus/tools": "^0.15.20"
   }
 }
