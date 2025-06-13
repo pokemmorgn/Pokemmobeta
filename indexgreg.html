@@ -613,6 +613,113 @@
           }
         }
 
+        // Recherche ULTRA-SPÉCIALISÉE pour Slush
+        if (!isInstalled && config.id === 'slush') {
+          console.log('🌊 Starting specialized Slush detection...');
+          
+          // Méthode 1: Chercher dans tous les objets qui ont des méthodes de connexion
+          for (const [key, objInfo] of Object.entries(walletLikeObjects)) {
+            const obj = window[key];
+            if (obj && (objInfo.hasConnect || objInfo.hasEnable)) {
+              // Vérifier si c'est potentiellement Slush par inspection
+              const objString = obj.toString();
+              const hasSlushIndicators = objString.includes('sui') || 
+                                       objString.includes('Sui') || 
+                                       objString.includes('slush') ||
+                                       objString.includes('Slush');
+              
+              if (hasSlushIndicators) {
+                provider = obj;
+                isInstalled = true;
+                detectedVia = `${key} (Slush indicators found)`;
+                console.log(`🌊 Found Slush via indicators in ${key}:`, obj);
+                break;
+              }
+            }
+          }
+          
+          // Méthode 2: Vérifier les événements postMessage (Slush peut utiliser ça)
+          if (!isInstalled) {
+            console.log('🌊 Checking for Slush postMessage API...');
+            try {
+              // Créer un provider postMessage pour Slush
+              const postMessageProvider = {
+                connect: async () => {
+                  return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Slush connection timeout')), 10000);
+                    
+                    const handleMessage = (event) => {
+                      if (event.data && event.data.type === 'SLUSH_CONNECT_RESPONSE') {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handleMessage);
+                        resolve(event.data.result);
+                      }
+                    };
+                    
+                    window.addEventListener('message', handleMessage);
+                    
+                    // Envoyer une demande de connexion à Slush
+                    window.postMessage({
+                      type: 'SLUSH_CONNECT_REQUEST',
+                      origin: window.location.origin
+                    }, '*');
+                  });
+                }
+              };
+              
+              provider = postMessageProvider;
+              isInstalled = true;
+              detectedVia = 'postMessage API (experimental)';
+              console.log('🌊 Using Slush postMessage provider');
+            } catch (e) {
+              console.log('🌊 PostMessage detection failed:', e);
+            }
+          }
+          
+          // Méthode 3: Vérifier les iframes cachés (Slush web app)
+          if (!isInstalled) {
+            const iframes = document.querySelectorAll('iframe');
+            for (const iframe of iframes) {
+              if (iframe.src && (iframe.src.includes('slush') || iframe.src.includes('sui'))) {
+                console.log('🌊 Found potential Slush iframe:', iframe.src);
+                // Créer un provider iframe
+                const iframeProvider = {
+                  connect: async () => {
+                    return 'Slush iframe detected - manual connection required';
+                  }
+                };
+                provider = iframeProvider;
+                isInstalled = true;
+                detectedVia = 'iframe detection';
+                break;
+              }
+            }
+          }
+          
+          // Méthode 4: Recherche dans le DOM pour les éléments Slush
+          if (!isInstalled) {
+            const slushElements = document.querySelectorAll('[data-slush], [class*="slush"], [id*="slush"]');
+            if (slushElements.length > 0) {
+              console.log('🌊 Found Slush DOM elements:', slushElements);
+              const domProvider = {
+                connect: async () => {
+                  // Essayer de déclencher un clic sur les éléments Slush
+                  for (const element of slushElements) {
+                    if (element.click) {
+                      element.click();
+                      break;
+                    }
+                  }
+                  return 'Slush DOM elements triggered';
+                }
+              };
+              provider = domProvider;
+              isInstalled = true;
+              detectedVia = 'DOM elements';
+            }
+          }
+        }
+
         // Recherche spéciale pour Phantom (peut être dans window.ethereum si multichain)
         if (!isInstalled && config.id === 'phantom') {
           if (window.ethereum && window.ethereum.isPhantom) {
