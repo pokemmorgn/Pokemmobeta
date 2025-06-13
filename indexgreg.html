@@ -298,7 +298,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v2.2.0 - SUI API Fix
+      v2.4.0 - Slush Detective
     </div>
     
     <div class="main-card">
@@ -642,35 +642,98 @@
           if (!isInstalled) {
             console.log('🌊 Checking for Slush postMessage API...');
             try {
+              // Écouter TOUS les messages pour voir ce que Slush envoie réellement
+              const messageListener = (event) => {
+                console.log('🌊 Received message:', event.data, 'from:', event.origin);
+              };
+              window.addEventListener('message', messageListener);
+              
               // Créer un provider postMessage pour Slush
               const postMessageProvider = {
                 connect: async () => {
                   return new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error('Slush connection timeout')), 10000);
+                    const timeout = setTimeout(() => {
+                      window.removeEventListener('message', messageListener);
+                      reject(new Error('Slush connection timeout - no response received'));
+                    }, 15000);
                     
-                    const handleMessage = (event) => {
-                      if (event.data && event.data.type === 'SLUSH_CONNECT_RESPONSE') {
+                    const handleSlushResponse = (event) => {
+                      console.log('🌊 Checking message for Slush response:', event.data);
+                      
+                      // Rechercher différents formats de réponse
+                      if (event.data && (
+                          event.data.type === 'SLUSH_CONNECT_RESPONSE' ||
+                          event.data.type === 'SUI_CONNECT_RESPONSE' ||
+                          event.data.type === 'WALLET_CONNECT_RESPONSE' ||
+                          (event.data.method && event.data.method.includes('connect')) ||
+                          (event.data.result && event.data.result.accounts)
+                      )) {
                         clearTimeout(timeout);
-                        window.removeEventListener('message', handleMessage);
-                        resolve(event.data.result);
+                        window.removeEventListener('message', handleSlushResponse);
+                        window.removeEventListener('message', messageListener);
+                        resolve(event.data.result || event.data || 'Slush connected via postMessage');
                       }
                     };
                     
-                    window.addEventListener('message', handleMessage);
+                    window.addEventListener('message', handleSlushResponse);
                     
-                    // Envoyer une demande de connexion à Slush
+                    // Essayer plusieurs formats de requête
+                    console.log('🌊 Sending Slush connection requests...');
+                    
+                    // Format 1: Slush spécifique
                     window.postMessage({
                       type: 'SLUSH_CONNECT_REQUEST',
-                      origin: window.location.origin
+                      origin: window.location.origin,
+                      timestamp: Date.now()
                     }, '*');
+                    
+                    // Format 2: SUI générique
+                    setTimeout(() => {
+                      window.postMessage({
+                        type: 'SUI_CONNECT_REQUEST',
+                        params: { origin: window.location.origin }
+                      }, '*');
+                    }, 1000);
+                    
+                    // Format 3: Standard wallet
+                    setTimeout(() => {
+                      window.postMessage({
+                        type: 'WALLET_CONNECT_REQUEST',
+                        method: 'connect',
+                        params: {}
+                      }, '*');
+                    }, 2000);
+                    
+                    // Format 4: Essayer de déclencher manuellement Slush
+                    setTimeout(() => {
+                      // Si Slush est une extension, essayer de la déclencher
+                      if (window.chrome && window.chrome.runtime) {
+                        console.log('🌊 Attempting Chrome extension communication...');
+                        try {
+                          // ID de l'extension Slush (peut varier)
+                          const slushExtensionId = 'opcgpfmipidbgpenhmajoajpbobppdil';
+                          window.chrome.runtime.sendMessage(slushExtensionId, {
+                            type: 'CONNECT_REQUEST'
+                          }, (response) => {
+                            if (response) {
+                              clearTimeout(timeout);
+                              window.removeEventListener('message', handleSlushResponse);
+                              resolve(response);
+                            }
+                          });
+                        } catch (e) {
+                          console.log('🌊 Chrome extension communication failed:', e);
+                        }
+                      }
+                    }, 3000);
                   });
                 }
               };
               
               provider = postMessageProvider;
               isInstalled = true;
-              detectedVia = 'postMessage API (experimental)';
-              console.log('🌊 Using Slush postMessage provider');
+              detectedVia = 'postMessage API (advanced)';
+              console.log('🌊 Using advanced Slush postMessage provider');
             } catch (e) {
               console.log('🌊 PostMessage detection failed:', e);
             }
@@ -698,24 +761,65 @@
           
           // Méthode 4: Recherche dans le DOM pour les éléments Slush
           if (!isInstalled) {
-            const slushElements = document.querySelectorAll('[data-slush], [class*="slush"], [id*="slush"]');
+            console.log('🌊 Checking DOM for Slush elements...');
+            const slushSelectors = [
+              '[data-slush]', '[class*="slush"]', '[id*="slush"]',
+              '[data-sui]', '[class*="sui"]', '[id*="sui"]',
+              'button[class*="wallet"]', 'div[class*="wallet"]',
+              '[aria-label*="wallet"]', '[title*="wallet"]'
+            ];
+            
+            let slushElements = [];
+            for (const selector of slushSelectors) {
+              const elements = document.querySelectorAll(selector);
+              slushElements = [...slushElements, ...Array.from(elements)];
+            }
+            
             if (slushElements.length > 0) {
-              console.log('🌊 Found Slush DOM elements:', slushElements);
+              console.log('🌊 Found potential Slush DOM elements:', slushElements);
               const domProvider = {
                 connect: async () => {
-                  // Essayer de déclencher un clic sur les éléments Slush
+                  console.log('🌊 Attempting DOM-based Slush connection...');
+                  
+                  // Essayer de cliquer sur chaque élément potentiel
                   for (const element of slushElements) {
-                    if (element.click) {
-                      element.click();
-                      break;
+                    const elementText = element.textContent || element.innerText || '';
+                    const elementClass = element.className || '';
+                    const elementId = element.id || '';
+                    
+                    console.log(`🌊 Checking element: ${elementText} (class: ${elementClass}, id: ${elementId})`);
+                    
+                    // Vérifier si l'élément semble être lié à Slush/SUI
+                    if (elementText.toLowerCase().includes('slush') || 
+                        elementText.toLowerCase().includes('sui') ||
+                        elementClass.toLowerCase().includes('slush') ||
+                        elementClass.toLowerCase().includes('sui') ||
+                        elementId.toLowerCase().includes('slush') ||
+                        elementId.toLowerCase().includes('sui')) {
+                      
+                      console.log('🌊 Found potential Slush element, clicking:', element);
+                      
+                      // Essayer différentes façons de déclencher l'élément
+                      if (element.click) {
+                        element.click();
+                      }
+                      if (element.dispatchEvent) {
+                        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                      }
+                      
+                      // Attendre un peu pour voir si ça déclenche quelque chose
+                      await new Promise(resolve => setTimeout(resolve, 2000));
                     }
                   }
-                  return 'Slush DOM elements triggered';
+                  
+                  return 'Slush DOM elements triggered - check if wallet popup appeared';
                 }
               };
               provider = domProvider;
               isInstalled = true;
-              detectedVia = 'DOM elements';
+              detectedVia = `DOM elements (${slushElements.length} found)`;
+            } else {
+              console.log('🌊 No Slush DOM elements found');
             }
           }
         }
