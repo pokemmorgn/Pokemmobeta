@@ -711,7 +711,7 @@
             }
         }
 
-        // Fonction de connexion principale avec gestion avancée des comptes
+        // Fonction améliorée pour vérifier et guider l'activation de Sui
         async function connectPhantom() {
             await waitForPhantom();
             
@@ -719,8 +719,10 @@
                 throw new Error('Phantom Wallet non trouvé. Veuillez installer Phantom depuis phantom.app');
             }
 
+            // NOUVEAU: Vérification spécifique du support Sui
             if (!window.phantom.sui) {
-                throw new Error('Le support Sui n\'est pas activé dans Phantom. Veuillez activer Sui dans les paramètres de Phantom.');
+                console.log('❌ Sui non disponible dans Phantom');
+                throw new Error('NETWORK_NOT_ENABLED: Le réseau Sui n\'est pas activé dans Phantom. Veuillez l\'activer dans Paramètres → Réseaux Actifs → Sui');
             }
 
             const suiProvider = window.phantom.sui;
@@ -730,7 +732,7 @@
             try {
                 if (typeof suiProvider.requestAccount === 'function') {
                     
-                    // NOUVELLE APPROCHE: Vérifier d'abord si des comptes sont déjà disponibles
+                    // Vérifier d'abord si des comptes sont déjà disponibles
                     if (suiProvider._accounts && suiProvider._accounts.length > 0) {
                         console.log('✅ Comptes déjà disponibles, tentative d\'utilisation directe');
                         for (let i = 0; i < suiProvider._accounts.length; i++) {
@@ -743,7 +745,7 @@
                         }
                     }
                     
-                    console.log('🔄 Aucun compte pré-existant utilisable, demande d\'autorisation...');
+                    console.log('🔄 Demande d\'autorisation Sui pour le compte actuel...');
                     const response = await suiProvider.requestAccount();
                     console.log('📥 Réponse de requestAccount:', response);
                     
@@ -751,7 +753,7 @@
                         userAddress = response.address;
                         console.log('✅ Adresse obtenue:', userAddress);
                         
-                        // NOUVEAU: Vérifier si c'est une vraie adresse Sui
+                        // Vérifier si c'est une vraie adresse Sui
                         if (userAddress.startsWith('0x') && userAddress.length === 66) {
                             console.log('✅ Format d\'adresse Sui valide détecté');
                             return { address: userAddress, approved: true, format: 'valid-sui' };
@@ -773,21 +775,22 @@
             } catch (error) {
                 console.error('❌ Erreur détaillée:', error);
                 
-                // NOUVEAU: Diagnostic spécifique pour comprendre le problème
+                // NOUVEAU: Diagnostic spécifique pour l'activation Sui
                 console.log('🔍 Diagnostic Phantom Sui:');
                 console.log('- Phantom.sui:', !!window.phantom.sui);
                 console.log('- _accounts:', suiProvider._accounts?.length || 0);
                 console.log('- isPhantom:', suiProvider.isPhantom);
                 console.log('- Méthodes:', Object.getOwnPropertyNames(suiProvider).filter(prop => typeof suiProvider[prop] === 'function'));
                 
-                // Gestion des erreurs spécifiques avec tentatives de récupération
+                // Gestion spécifique de l'erreur "$e: Unexpected error"
                 if (error.message.includes('Unexpected error') || 
                     error.message.includes('$e') || 
                     error.message.includes('Cannot read properties of undefined')) {
                     
-                    console.log('🔄 Erreur technique Phantom détectée, tentatives de récupération...');
+                    console.log('🔄 Erreur technique Phantom détectée');
+                    console.log('💡 Cause probable: Sui non activé pour ce compte Phantom');
                     
-                    // NOUVELLE MÉTHODE 1: Essayer d'accéder aux comptes via différentes propriétés
+                    // Essayer de récupérer l'adresse via d'autres méthodes
                     const recoveryMethods = [
                         () => suiProvider.publicKey?.toString(),
                         () => suiProvider.address,
@@ -810,17 +813,11 @@
                         }
                     }
                     
-                    // NOUVELLE MÉTHODE 2: Suggérer le changement de compte
-                    console.log('💡 Suggestion: Le compte Phantom actuel pourrait être sur un derivation path incompatible');
-                    console.log('💡 Essayez de changer de compte dans Phantom et de reconnecter');
+                    // Si aucune récupération ne fonctionne, c'est probablement un problème d'activation
+                    console.log('💡 Solution: Le compte Phantom actuel n\'a pas Sui activé');
                     
-                    userAddress = 'TEMP_' + Math.random().toString(16).substring(2, 20);
-                    return { 
-                        address: userAddress, 
-                        mode: 'temp_recovery', 
-                        suggestion: 'account_switch_needed',
-                        error: error.message
-                    };
+                    // Retourner une erreur spécifique pour l'activation
+                    throw new Error('SUI_NOT_ACTIVATED: Sui non activé pour ce compte. Ouvrez Phantom → Paramètres → Réseaux Actifs → Activez Sui, puis changez de compte si nécessaire.');
                 }
                 
                 if (error.code === 4001 || error.message.includes('User rejected')) {
