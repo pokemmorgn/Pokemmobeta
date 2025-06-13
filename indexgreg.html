@@ -477,10 +477,32 @@
             }
         }
 
-        // Afficher le statut de connexion
-        function showConnectionStatus(message, type = 'success') {
+        // Afficher le statut de connexion avec suggestions
+        function showConnectionStatus(message, type = 'success', suggestion = null) {
             connectionStatus.textContent = message;
             connectionStatus.className = `connection-status ${type}`;
+            
+            // Ajouter des suggestions spécifiques si disponibles
+            if (suggestion === 'account_switch_needed') {
+                const suggestionDiv = document.createElement('div');
+                suggestionDiv.style.cssText = `
+                    margin-top: 12px;
+                    padding: 12px;
+                    background: #fef3c7;
+                    border: 1px solid #f59e0b;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    color: #92400e;
+                `;
+                suggestionDiv.innerHTML = `
+                    <strong>💡 Solution possible :</strong><br>
+                    1. Ouvrez Phantom<br>
+                    2. Changez de compte (cliquez sur le nom du compte en haut)<br>
+                    3. Revenez ici et réessayez la connexion<br>
+                    <em>Certains comptes Phantom utilisent des chemins de dérivation incompatibles avec l'API Sui.</em>
+                `;
+                connectionStatus.appendChild(suggestionDiv);
+            }
         }
 
         // Réinitialiser l'interface
@@ -598,10 +620,21 @@
                 } else if (result.address && result.address.startsWith('TEMP_')) {
                     console.log(`⚠️ Adresse temporaire obtenue (tentative ${connectionAttempts}/${maxRetries})`);
                     
+                    // Afficher une suggestion si c'est un problème de derivation path
+                    if (result.suggestion === 'account_switch_needed') {
+                        showConnectionStatus(
+                            `⚠️ Problème de compte Phantom détecté (${connectionAttempts}/${maxRetries})`, 
+                            'warning', 
+                            'account_switch_needed'
+                        );
+                    }
+                    
                     // IMPORTANT: Vérifier la limite AVANT de retry
                     if (connectionAttempts < maxRetries) {
                         const waitTime = Math.min(1500 + (connectionAttempts * 500), 4000);
-                        showConnectionStatus(`⚠️ Adresse temporaire. Retry ${connectionAttempts + 1}/${maxRetries} dans ${waitTime/1000}s...`, 'warning');
+                        if (!result.suggestion) {
+                            showConnectionStatus(`⚠️ Adresse temporaire. Retry ${connectionAttempts + 1}/${maxRetries} dans ${waitTime/1000}s...`, 'warning');
+                        }
                         
                         setTimeout(() => {
                             connectPhantomWithRetry();
@@ -616,6 +649,7 @@
                         connectionState.address = userAddress;
                         connectionState.mode = result.mode || 'temp';
                         connectionState.attempts = 0;
+                        connectionState.suggestion = result.suggestion;
                         saveConnectionState();
                         
                         showConnectedState();
@@ -677,7 +711,7 @@
             }
         }
 
-        // Fonction de connexion principale (inchangée)
+        // Fonction de connexion principale avec gestion avancée des comptes
         async function connectPhantom() {
             await waitForPhantom();
             
@@ -690,57 +724,103 @@
             }
 
             const suiProvider = window.phantom.sui;
-            console.log('Tentative de connexion avec requestAccount...');
+            console.log('🔍 Tentative de connexion avec requestAccount...');
+            console.log('🔍 Comptes Phantom disponibles:', suiProvider._accounts?.length || 'Aucun');
 
             try {
                 if (typeof suiProvider.requestAccount === 'function') {
+                    
+                    // NOUVELLE APPROCHE: Vérifier d'abord si des comptes sont déjà disponibles
+                    if (suiProvider._accounts && suiProvider._accounts.length > 0) {
+                        console.log('✅ Comptes déjà disponibles, tentative d\'utilisation directe');
+                        for (let i = 0; i < suiProvider._accounts.length; i++) {
+                            const account = suiProvider._accounts[i];
+                            if (account.address && account.address.startsWith('0x')) {
+                                console.log(`✅ Compte ${i} trouvé:`, account.address);
+                                userAddress = account.address;
+                                return { address: userAddress, source: 'pre-existing', accountIndex: i };
+                            }
+                        }
+                    }
+                    
+                    console.log('🔄 Aucun compte pré-existant utilisable, demande d\'autorisation...');
                     const response = await suiProvider.requestAccount();
-                    console.log('Réponse de requestAccount:', response);
+                    console.log('📥 Réponse de requestAccount:', response);
                     
                     if (response && response.address) {
                         userAddress = response.address;
+                        console.log('✅ Adresse obtenue:', userAddress);
+                        
+                        // NOUVEAU: Vérifier si c'est une vraie adresse Sui
+                        if (userAddress.startsWith('0x') && userAddress.length === 66) {
+                            console.log('✅ Format d\'adresse Sui valide détecté');
+                            return { address: userAddress, approved: true, format: 'valid-sui' };
+                        } else {
+                            console.log('⚠️ Format d\'adresse inhabituel:', userAddress);
+                            return { address: userAddress, approved: true, format: 'unusual' };
+                        }
                     } else if (response && response.publicKey) {
                         userAddress = response.publicKey.toString();
+                        console.log('✅ Adresse depuis publicKey:', userAddress);
+                        return { address: userAddress, approved: true, format: 'from-pubkey' };
                     } else {
-                        throw new Error('Format de réponse inattendu');
+                        throw new Error('Format de réponse inattendu: ' + JSON.stringify(response));
                     }
-
-                    console.log('Connexion réussie:', userAddress);
-                    return { address: userAddress, approved: true };
                 } else {
                     throw new Error('La méthode requestAccount n\'est pas disponible');
                 }
 
             } catch (error) {
-                console.error('Erreur détaillée:', error);
+                console.error('❌ Erreur détaillée:', error);
                 
-                // Gestion des erreurs spécifiques
+                // NOUVEAU: Diagnostic spécifique pour comprendre le problème
+                console.log('🔍 Diagnostic Phantom Sui:');
+                console.log('- Phantom.sui:', !!window.phantom.sui);
+                console.log('- _accounts:', suiProvider._accounts?.length || 0);
+                console.log('- isPhantom:', suiProvider.isPhantom);
+                console.log('- Méthodes:', Object.getOwnPropertyNames(suiProvider).filter(prop => typeof suiProvider[prop] === 'function'));
+                
+                // Gestion des erreurs spécifiques avec tentatives de récupération
                 if (error.message.includes('Unexpected error') || 
                     error.message.includes('$e') || 
                     error.message.includes('Cannot read properties of undefined')) {
                     
-                    console.log('Erreur technique Phantom détectée');
+                    console.log('🔄 Erreur technique Phantom détectée, tentatives de récupération...');
                     
-                    // Essayer de récupérer l'adresse d'autres façons
-                    let realAddress = null;
+                    // NOUVELLE MÉTHODE 1: Essayer d'accéder aux comptes via différentes propriétés
+                    const recoveryMethods = [
+                        () => suiProvider.publicKey?.toString(),
+                        () => suiProvider.address,
+                        () => suiProvider.account?.address,
+                        () => window.phantom._sui?.address,
+                        () => suiProvider._accounts?.[0]?.address,
+                        () => window.phantom.accounts?.sui?.[0]?.address
+                    ];
                     
-                    if (suiProvider.publicKey) {
-                        realAddress = suiProvider.publicKey.toString();
-                    } else if (suiProvider.address) {
-                        realAddress = suiProvider.address;
-                    } else if (suiProvider.account?.address) {
-                        realAddress = suiProvider.account.address;
+                    for (let i = 0; i < recoveryMethods.length; i++) {
+                        try {
+                            const recoveredAddress = recoveryMethods[i]();
+                            if (recoveredAddress && recoveredAddress.startsWith('0x')) {
+                                console.log(`✅ Méthode de récupération ${i + 1} réussie:`, recoveredAddress);
+                                userAddress = recoveredAddress;
+                                return { address: userAddress, mode: 'recovered', method: i + 1 };
+                            }
+                        } catch (e) {
+                            console.log(`⚠️ Méthode de récupération ${i + 1} échouée:`, e.message);
+                        }
                     }
                     
-                    if (realAddress) {
-                        userAddress = realAddress;
-                        console.log('✅ Vraie adresse récupérée:', userAddress);
-                        return { address: userAddress, mode: 'real_recovery' };
-                    } else {
-                        console.warn('⚠️ Mode temporaire activé');
-                        userAddress = 'TEMP_' + Math.random().toString(16).substring(2, 20);
-                        return { address: userAddress, mode: 'temp_recovery' };
-                    }
+                    // NOUVELLE MÉTHODE 2: Suggérer le changement de compte
+                    console.log('💡 Suggestion: Le compte Phantom actuel pourrait être sur un derivation path incompatible');
+                    console.log('💡 Essayez de changer de compte dans Phantom et de reconnecter');
+                    
+                    userAddress = 'TEMP_' + Math.random().toString(16).substring(2, 20);
+                    return { 
+                        address: userAddress, 
+                        mode: 'temp_recovery', 
+                        suggestion: 'account_switch_needed',
+                        error: error.message
+                    };
                 }
                 
                 if (error.code === 4001 || error.message.includes('User rejected')) {
