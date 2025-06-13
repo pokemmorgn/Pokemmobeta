@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Phantom Walletaa Connector</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body { 
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #fff; 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 500px;
+      width: 100%;
+      padding: 20px;
+    }
+
+    .main-card {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    .connect-btn {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 16px 32px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .connect-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.4);
+    }
+
+    .connect-btn:active {
+      transform: translateY(0);
+    }
+
+    .connect-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .status.success {
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #4ade80;
+    }
+
+    .status.error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    .status.info {
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+    }
+
+    .address-display {
+      margin-top: 15px;
+      padding: 12px;
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 8px;
+      font-family: 'Monaco', monospace;
+      font-size: 0.9rem;
+      word-break: break-all;
+      color: #a5f3fc;
+    }
+
+    .phantom-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    .install-link {
+      display: inline-block;
+      padding: 12px 24px;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 8px;
+      color: #a5b4fc;
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      margin-top: 15px;
+    }
+
+    .install-link:hover {
+      background: rgba(99, 102, 241, 0.3);
+      color: #c7d2fe;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Version Badge -->
+    <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
+      v4.5.0 - SUI Only + Auto Check
+    </div>
+    
+    <div class="main-card">
+      <div class="phantom-icon">👻</div>
+      <h1>Connect Phantom</h1>
+      <p class="subtitle">Connect your Phantom wallet for SUI blockchain</p>
+      
+      <button class="connect-btn" id="connectBtn" onclick="connectPhantom()">
+        Connect Phantom Wallet
+      </button>
+      
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration Phantom uniquement
+    const PHANTOM_CONFIG = {
+      id: 'phantom',
+      name: 'Phantom',
+      icon: '👻',
+      description: 'Multi-chain wallet with SUI support',
+      installUrl: 'https://phantom.app/',
+      detectors: ['phantom'],
+      connectMethod: async (provider) => {
+        try {
+          console.log('🔧 Attempting Phantom SUI connection with provider:', provider);
+          console.log('🔧 Provider structure:', {
+            hasSui: !!provider.sui,
+            suiMethods: provider.sui ? Object.getOwnPropertyNames(provider.sui) : 'No SUI'
+          });
+          
+          // UNIQUEMENT SUI - PAS DE SOLANA !
+          if (provider.sui && provider.sui.connect) {
+            console.log('🔧 Using provider.sui.connect() - SUI ONLY');
+            const result = await provider.sui.connect();
+            console.log('🔧 SUI Connect result:', result);
+            return result.accounts?.[0] || result.address || JSON.stringify(result);
+          }
+          
+          throw new Error(`SUI provider not found or no connect method! Available: ${Object.getOwnPropertyNames(provider).join(', ')}`);
+        } catch (error) {
+          console.error('🔧 Phantom SUI connection error:', error);
+          throw new Error(`Phantom SUI connection failed: ${error.message}`);
+        }
+      }
+    };
+
+    // Fonction pour détecter Phantom
+    function detectPhantom() {
+      let provider = null;
+      let isInstalled = false;
+      let detectedVia = null;
+
+      // Essayer les détecteurs configurés
+      for (const detector of PHANTOM_CONFIG.detectors) {
+        if (window[detector]) {
+          provider = window[detector];
+          isInstalled = true;
+          detectedVia = detector;
+          break;
+        }
+      }
+
+      // Recherche dans window.ethereum si multichain
+      if (!isInstalled && window.ethereum && window.ethereum.isPhantom) {
+        provider = window.ethereum;
+        isInstalled = true;
+        detectedVia = 'ethereum.isPhantom';
+        console.log('👻 Found Phantom via window.ethereum.isPhantom');
+      }
+
+      // Recherche directe window.phantom
+      if (!isInstalled && window.phantom) {
+        provider = window.phantom;
+        isInstalled = true;
+        detectedVia = 'window.phantom';
+        console.log('👻 Found Phantom via window.phantom');
+      }
+
+      return {
+        ...PHANTOM_CONFIG,
+        provider,
+        isInstalled,
+        detectedVia
+      };
+    }
+
+    // Fonction pour afficher le statut
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+    }
+
+    // Fonction pour se connecter à Phantom
+    async function connectPhantom() {
+      const connectBtn = document.getElementById('connectBtn');
+      
+      try {
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connecting...';
+        showStatus('🔄 Connecting to Phantom...', 'info');
+        
+        const phantom = detectPhantom();
+        
+        if (!phantom.isInstalled) {
+          showStatus(`
+            ❌ Phantom wallet not detected!
+            <br><br>
+            <a href="${PHANTOM_CONFIG.installUrl}" target="_blank" class="install-link">
+              👻 Install Phantom Wallet
+            </a>
+          `, 'error');
+          return;
+        }
+
+        if (!phantom.provider) {
+          throw new Error('Phantom provider not found');
+        }
+
+        const address = await phantom.connectMethod(phantom.provider);
+        
+        // Formater l'adresse proprement
+        let displayAddress = address;
+        if (typeof address === 'object' && address !== null) {
+          displayAddress = JSON.stringify(address, null, 2);
+        }
+        
+        showStatus(`
+          🎉 Successfully connected to Phantom!
+          <br>Detected via: ${phantom.detectedVia}
+          <div class="address-display">${displayAddress}</div>
+        `, 'success');
+        
+        connectBtn.textContent = '✅ Connected';
+        
+      } catch (error) {
+        console.error('Connection error:', error);
+        showStatus(`❌ Failed to connect to Phantom: ${error.message}`, 'error');
+        connectBtn.textContent = 'Connect Phantom Wallet';
+      } finally {
+        connectBtn.disabled = false;
+      }
+    }
+
+    // Vérification initiale
+    setTimeout(() => {
+      const phantom = detectPhantom();
+      if (phantom.isInstalled) {
+        showStatus(`🎯 Phantom detected via: ${phantom.detectedVia}`, 'success');
+      } else {
+        showStatus(`💡 Phantom not detected. Please install Phantom wallet first.`, 'info');
+      }
+    }, 1000);
+
+    // Raccourci clavier Enter pour se connecter
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        connectPhantom();
+      }
+    });
+  </script>
+</body>
+</html>
