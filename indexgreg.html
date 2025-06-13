@@ -930,29 +930,35 @@
             }
         }
 
-        const dosProtection = new DoSProtection();
-            // Vérifier l'environnement
-            if (detectSuspiciousActivity()) {
-                document.body.innerHTML = '<h1>Accès refusé</h1>';
-            }
-                return false;
-            }
+const dosProtection = new DoSProtection();
 
-            // Vérifier HTTPS en production
-            if (location.hostname !== 'localhost' && location.protocol !== 'https:') {
-                logSecurityEvent('INSECURE_CONNECTION', { protocol: location.protocol });
-                if (confirm('Connexion non sécurisée détectée. Rediriger vers HTTPS?')) {
-                    location.replace('https:' + window.location.href.substring(window.location.protocol.length));
-                }
-                return false;
-            }
+// Initialisation sécuritaire
+function initializeSecurity() {
+    // Vérifier l'environnement
+    if (detectSuspiciousActivity()) {
+        document.body.innerHTML = '<h1>Accès refusé</h1>';
+        return false;
+    }
 
-            // Protection contre le clickjacking
-            if (window.top !== window.self) {
-                logSecurityEvent('CLICKJACKING_ATTEMPT', { referrer: document.referrer });
-                document.body.innerHTML = '<h1>Cette page ne peut pas être intégrée dans un iframe</h1>';
-                return false;
-            }
+    // Vérifier HTTPS en production
+    if (location.hostname !== 'localhost' && location.protocol !== 'https:') {
+        logSecurityEvent('INSECURE_CONNECTION', { protocol: location.protocol });
+        if (confirm('Connexion non sécurisée détectée. Rediriger vers HTTPS?')) {
+            location.replace('https:' + window.location.href.substring(window.location.protocol.length));
+        }
+        return false;
+    }
+
+    // Protection contre le clickjacking
+    if (window.top !== window.self) {
+        logSecurityEvent('CLICKJACKING_ATTEMPT', { referrer: document.referrer });
+        document.body.innerHTML = '<h1>Cette page ne peut pas être intégrée dans un iframe</h1>';
+        return false;
+    }
+
+    console.log('🔒 Sécurité initialisée avec succès');
+    return true;
+}
 
             // Fonction de diagnostic de sécurité
         function getSecurityDiagnostic() {
