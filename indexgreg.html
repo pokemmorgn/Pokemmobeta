@@ -381,7 +381,7 @@
 
     // Vérifier si Phantom est installé
     function isPhantomInstalled() {
-      return !!(window.phantom && window.phantom.sui);
+      return !!(window.phantom && (window.phantom.sui || window.phantom.solana));
     }
 
     // Afficher le statut
@@ -426,29 +426,71 @@
 
         showStatus('🔄 Connecting to Phantom...', 'info');
         
-        const phantom = window.phantom.sui;
-        
-        // Tenter la connexion
-        const response = await phantom.connect();
-        
-        if (response && response.accounts && response.accounts.length > 0) {
-          currentWallet = phantom;
-          currentAddress = response.accounts[0];
+        // Essayer d'abord l'API SUI si disponible
+        if (window.phantom.sui) {
+          console.log('🔧 Trying Phantom SUI API');
+          const phantom = window.phantom.sui;
           
-          // Mettre à jour l'affichage de l'adresse
-          document.getElementById('walletAddress').textContent = 
-            `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-          
-          showStatus('🎉 Successfully connected to Phantom!', 'success');
-          updateUI(true);
-          
-          // Récupérer le solde
-          await getBalance();
-          
-          return true;
-        } else {
-          throw new Error('No accounts returned from Phantom');
+          // Méthode 1: requestPermissions puis getAccounts
+          try {
+            await phantom.requestPermissions({
+              permissions: ['viewAccount']
+            });
+            
+            const accounts = await phantom.getAccounts();
+            
+            if (accounts && accounts.length > 0) {
+              currentWallet = phantom;
+              currentAddress = accounts[0];
+              
+              // Mettre à jour l'affichage de l'adresse
+              document.getElementById('walletAddress').textContent = 
+                `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+              
+              showStatus('🎉 Successfully connected to Phantom!', 'success');
+              updateUI(true);
+              
+              // Récupérer le solde
+              await getBalance();
+              
+              return true;
+            }
+          } catch (suiError) {
+            console.log('🔧 SUI API failed, trying alternative methods:', suiError);
+          }
         }
+        
+        // Méthode alternative: utiliser l'API Solana si SUI n'est pas disponible
+        if (window.phantom.solana) {
+          console.log('🔧 Trying Phantom Solana API as fallback');
+          const phantom = window.phantom.solana;
+          
+          try {
+            const response = await phantom.connect({ onlyIfTrusted: false });
+            
+            if (response && response.publicKey) {
+              currentWallet = phantom;
+              currentAddress = response.publicKey.toString();
+              
+              // Mettre à jour l'affichage de l'adresse
+              document.getElementById('walletAddress').textContent = 
+                `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+              
+              showStatus('🎉 Connected to Phantom! (Note: Using Solana API - SUI features may be limited)', 'success');
+              updateUI(true);
+              
+              // Essayer de récupérer le solde
+              await getBalance();
+              
+              return true;
+            }
+          } catch (solanaError) {
+            console.log('🔧 Solana API also failed:', solanaError);
+          }
+        }
+        
+        // Si toutes les méthodes échouent
+        throw new Error('Unable to connect with any Phantom API');
         
       } catch (error) {
         console.error('Connection error:', error);
@@ -458,6 +500,8 @@
           errorMessage = 'Connection cancelled by user';
         } else if (error.message.includes('not installed')) {
           errorMessage = 'Phantom wallet is not installed';
+        } else if (error.message.includes('permissions')) {
+          errorMessage = 'Permission denied. Please approve the connection in Phantom.';
         } else {
           errorMessage = error.message;
         }
@@ -501,17 +545,52 @@
       try {
         document.getElementById('walletBalance').textContent = 'Loading...';
         
-        // Utiliser l'API SUI pour récupérer le solde
-        const balanceResponse = await currentWallet.getBalance({
-          owner: currentAddress,
-        });
+        // Vérifier si on utilise l'API SUI
+        if (currentWallet.getBalance && window.phantom.sui) {
+          try {
+            const balanceResponse = await currentWallet.getBalance({
+              owner: currentAddress,
+            });
+            
+            if (balanceResponse && balanceResponse.totalBalance) {
+              // Convertir de MIST en SUI (1 SUI = 1,000,000,000 MIST)
+              const suiBalance = (parseInt(balanceResponse.totalBalance) / 1000000000).toFixed(4);
+              document.getElementById('walletBalance').textContent = `${suiBalance} SUI`;
+            } else {
+              document.getElementById('walletBalance').textContent = '0.0000 SUI';
+            }
+            return;
+          } catch (suiError) {
+            console.log('🔧 SUI balance API failed:', suiError);
+          }
+        }
         
-        if (balanceResponse && balanceResponse.totalBalance) {
-          // Convertir de MIST en SUI (1 SUI = 1,000,000,000 MIST)
-          const suiBalance = (parseInt(balanceResponse.totalBalance) / 1000000000).toFixed(4);
-          document.getElementById('walletBalance').textContent = `${suiBalance} SUI`;
-        } else {
-          document.getElementById('walletBalance').textContent = '0.0000 SUI';
+        // Fallback: utiliser une API publique SUI
+        try {
+          const response = await fetch('https://fullnode.mainnet.sui.io:443', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'suix_getBalance',
+              params: [currentAddress]
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.result && data.result.totalBalance) {
+            const suiBalance = (parseInt(data.result.totalBalance) / 1000000000).toFixed(4);
+            document.getElementById('walletBalance').textContent = `${suiBalance} SUI`;
+          } else {
+            document.getElementById('walletBalance').textContent = '0.0000 SUI';
+          }
+        } catch (apiError) {
+          console.log('🔧 Public API also failed:', apiError);
+          document.getElementById('walletBalance').textContent = 'N/A (Solana mode)';
         }
         
       } catch (error) {
@@ -531,18 +610,52 @@
       try {
         showStatus('🔄 Getting account information...', 'info');
         
-        // Récupérer les objets possédés par l'adresse
-        const ownedObjects = await currentWallet.getOwnedObjects({
-          owner: currentAddress,
-          options: {
-            showType: true,
-            showContent: true,
-          },
-        });
+        // Vérifier si on utilise l'API SUI
+        if (currentWallet.getOwnedObjects && window.phantom.sui) {
+          try {
+            const ownedObjects = await currentWallet.getOwnedObjects({
+              owner: currentAddress,
+              options: {
+                showType: true,
+                showContent: true,
+              },
+            });
 
-        const objectCount = ownedObjects?.data?.length || 0;
+            const objectCount = ownedObjects?.data?.length || 0;
+            showStatus(`📊 Account Info: ${objectCount} objects owned on SUI`, 'success');
+            return;
+          } catch (suiError) {
+            console.log('🔧 SUI account info failed:', suiError);
+          }
+        }
         
-        showStatus(`📊 Account Info: ${objectCount} objects owned`, 'success');
+        // Fallback: utiliser l'API publique SUI
+        try {
+          const response = await fetch('https://fullnode.mainnet.sui.io:443', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'suix_getOwnedObjects',
+              params: [currentAddress, { showType: true, showContent: false }, null, null]
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.result && data.result.data) {
+            const objectCount = data.result.data.length;
+            showStatus(`📊 Account Info: ${objectCount} objects owned on SUI`, 'success');
+          } else {
+            showStatus(`📊 Account Info: Connected address ${currentAddress.slice(0, 8)}...`, 'success');
+          }
+        } catch (apiError) {
+          console.log('🔧 Public API account info failed:', apiError);
+          showStatus(`📊 Account Info: Connected to ${currentAddress.slice(0, 8)}...`, 'success');
+        }
         
       } catch (error) {
         console.error('Account info error:', error);
@@ -588,25 +701,57 @@
     // Écouter les événements de déconnexion de Phantom
     function setupWalletListeners() {
       if (isPhantomInstalled()) {
-        const phantom = window.phantom.sui;
-        
-        // Écouter les changements d'état
-        phantom.on('disconnect', () => {
-          console.log('Phantom disconnected');
-          disconnect();
-        });
-        
-        phantom.on('accountChanged', (newAccount) => {
-          console.log('Account changed:', newAccount);
-          if (newAccount) {
-            currentAddress = newAccount;
-            document.getElementById('walletAddress').textContent = 
-              `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-            getBalance();
-          } else {
-            disconnect();
+        // Essayer d'abord l'API SUI
+        if (window.phantom.sui && window.phantom.sui.on) {
+          const phantom = window.phantom.sui;
+          
+          try {
+            phantom.on('disconnect', () => {
+              console.log('Phantom SUI disconnected');
+              disconnect();
+            });
+            
+            phantom.on('accountChanged', (newAccount) => {
+              console.log('SUI account changed:', newAccount);
+              if (newAccount) {
+                currentAddress = newAccount;
+                document.getElementById('walletAddress').textContent = 
+                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+                getBalance();
+              } else {
+                disconnect();
+              }
+            });
+          } catch (suiListenerError) {
+            console.log('🔧 SUI listeners failed:', suiListenerError);
           }
-        });
+        }
+        
+        // Fallback sur l'API Solana
+        if (window.phantom.solana && window.phantom.solana.on) {
+          const phantom = window.phantom.solana;
+          
+          try {
+            phantom.on('disconnect', () => {
+              console.log('Phantom Solana disconnected');
+              disconnect();
+            });
+            
+            phantom.on('accountChanged', (newAccount) => {
+              console.log('Solana account changed:', newAccount);
+              if (newAccount) {
+                currentAddress = newAccount.toString();
+                document.getElementById('walletAddress').textContent = 
+                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+                getBalance();
+              } else {
+                disconnect();
+              }
+            });
+          } catch (solanaListenerError) {
+            console.log('🔧 Solana listeners failed:', solanaListenerError);
+          }
+        }
       }
     }
 
