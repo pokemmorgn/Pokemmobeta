@@ -2,85 +2,193 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Multi-SUI Wallet Connect</title>
+  <title>SUI Wallet Connect</title>
   <style>
-    body { background: #181c24; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-    #wallets { margin-bottom: 16px; }
-    .wallet-btn { padding: 12px 32px; border-radius: 8px; font-size: 1.1em; border: none; margin: 0 8px 8px 0; background: #6366f1; color: white; cursor: pointer; }
-    .wallet-btn:disabled { background: #888; }
-    #address { margin-top: 20px; font-size: 1.2em; }
-    #error { color: #f66; margin-top: 14px; }
+    body { 
+      background: #181c24; 
+      color: #fff; 
+      font-family: sans-serif; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      text-align: center;
+    }
+    h1 {
+      color: #6366f1;
+      margin-bottom: 30px;
+    }
+    #wallets { 
+      margin-bottom: 20px; 
+    }
+    .wallet-btn { 
+      padding: 12px 24px; 
+      border-radius: 8px; 
+      font-size: 1.1em; 
+      border: none; 
+      margin: 8px; 
+      background: #6366f1; 
+      color: white; 
+      cursor: pointer;
+      min-width: 200px;
+      display: block;
+    }
+    .wallet-btn:hover:not(:disabled) { 
+      background: #5856eb; 
+    }
+    .wallet-btn:disabled { 
+      background: #555; 
+      cursor: not-allowed;
+    }
+    #status { 
+      margin: 20px 0; 
+      padding: 15px;
+      border-radius: 8px;
+      min-height: 50px;
+    }
+    .success { 
+      background: #065f46; 
+      color: #d1fae5; 
+    }
+    .error { 
+      background: #7f1d1d; 
+      color: #fecaca; 
+    }
+    .info {
+      background: #1e3a8a;
+      color: #dbeafe;
+    }
+    .address {
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
-  <div id="wallets"></div>
-  <div id="address"></div>
-  <div id="error"></div>
+  <div class="container">
+    <h1>SUI Wallet Connection</h1>
+    <div id="wallets"></div>
+    <div id="status" class="info">Select a wallet to connect</div>
+  </div>
+
   <script>
     const walletsDiv = document.getElementById('wallets');
-    const addressDiv = document.getElementById('address');
-    const errorDiv = document.getElementById('error');
+    const statusDiv = document.getElementById('status');
 
-    // Detect wallets
-    const walletProviders = [
+    // Wallets SUI réels
+    const suiWallets = [
       {
-        name: "Phantom (SUI)",
-        key: "phantom",
-        provider: window.phantom && window.phantom.sui,
+        name: "SUI Wallet",
+        key: "sui",
+        provider: () => window.suiWallet,
         connect: async () => {
-          const resp = await window.phantom.sui.connect();
-          return resp.publicKey || resp.address || resp.accounts?.[0];
+          if (!window.suiWallet) throw new Error("SUI Wallet not found");
+          const result = await window.suiWallet.connect();
+          return result.accounts?.[0] || result.address || result;
         }
       },
       {
-        name: "Slush Wallet",
-        key: "slush",
-        provider: window.slush || window.slushWallet,
+        name: "Martian Wallet",
+        key: "martian",
+        provider: () => window.martian,
         connect: async () => {
-          // Slush expose window.slush ou window.slushWallet
-          const slush = window.slush || window.slushWallet;
-          if (!slush) throw new Error("No Slush wallet provider.");
-          // Méthode connect ou getAccount selon l'API
-          if (slush.connect) {
-            const acc = await slush.connect();
-            return acc.address || acc.accounts?.[0] || acc;
-          }
-          if (slush.getAccount) {
-            const acc = await slush.getAccount();
-            return acc.address || acc.accounts?.[0] || acc;
-          }
-          throw new Error("No recognized connect method for Slush.");
+          if (!window.martian) throw new Error("Martian Wallet not found");
+          const result = await window.martian.connect();
+          return result.address || result.accounts?.[0] || result;
+        }
+      },
+      {
+        name: "Ethos Wallet",
+        key: "ethos",
+        provider: () => window.ethosWallet,
+        connect: async () => {
+          if (!window.ethosWallet) throw new Error("Ethos Wallet not found");
+          const result = await window.ethosWallet.connect();
+          return result.accounts?.[0] || result.address || result;
+        }
+      },
+      {
+        name: "Suiet Wallet",
+        key: "suiet",
+        provider: () => window.suiet,
+        connect: async () => {
+          if (!window.suiet) throw new Error("Suiet Wallet not found");
+          const result = await window.suiet.connect();
+          return result.accounts?.[0] || result.address || result;
         }
       }
     ];
 
-    // Affichage dynamique
-    let found = false;
-    walletProviders.forEach(w => {
-      if (w.provider) {
-        found = true;
-        const btn = document.createElement('button');
-        btn.textContent = `Connect ${w.name}`;
-        btn.className = 'wallet-btn';
-        btn.onclick = async () => {
-          errorDiv.textContent = '';
-          addressDiv.textContent = '';
-          btn.disabled = true;
-          try {
-            const addr = await w.connect();
-            addressDiv.textContent = "Wallet address: " + addr;
-          } catch (e) {
-            errorDiv.textContent = "Failed to connect: " + (e.message || e);
-          }
-          btn.disabled = false;
-        };
-        walletsDiv.appendChild(btn);
+    function updateStatus(message, type = 'info') {
+      statusDiv.textContent = message;
+      statusDiv.className = type;
+    }
+
+    function createWalletButton(wallet) {
+      const btn = document.createElement('button');
+      btn.textContent = `Connect ${wallet.name}`;
+      btn.className = 'wallet-btn';
+      
+      const provider = wallet.provider();
+      if (!provider) {
+        btn.disabled = true;
+        btn.textContent += ' (Not Installed)';
       }
+      
+      btn.onclick = async () => {
+        if (!provider) {
+          updateStatus(`${wallet.name} is not installed. Please install it first.`, 'error');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Connecting...';
+        updateStatus('Connecting to wallet...', 'info');
+
+        try {
+          const address = await wallet.connect();
+          updateStatus(`Connected! Address: ${address}`, 'success');
+          statusDiv.innerHTML = `<div>✅ Connected to ${wallet.name}</div><div class="address">Address: ${address}</div>`;
+          statusDiv.className = 'success';
+        } catch (error) {
+          console.error('Connection error:', error);
+          updateStatus(`Failed to connect: ${error.message}`, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = `Connect ${wallet.name}`;
+        }
+      };
+      
+      return btn;
+    }
+
+    // Créer les boutons
+    suiWallets.forEach(wallet => {
+      walletsDiv.appendChild(createWalletButton(wallet));
     });
 
-    if (!found) {
-      walletsDiv.textContent = "No supported SUI wallet detected (Phantom SUI or Slush Wallet).";
+    // Vérifier si au moins un wallet est disponible
+    const availableWallets = suiWallets.filter(w => w.provider());
+    if (availableWallets.length === 0) {
+      updateStatus('No SUI wallets detected. Please install a SUI wallet like SUI Wallet, Martian, Ethos, or Suiet.', 'error');
+    } else {
+      updateStatus(`${availableWallets.length} SUI wallet(s) detected. Click to connect.`, 'info');
     }
+
+    // Debug: afficher les objets window disponibles
+    console.log('Available wallet objects:', {
+      suiWallet: !!window.suiWallet,
+      martian: !!window.martian,
+      ethosWallet: !!window.ethosWallet,
+      suiet: !!window.suiet,
+      phantom: !!window.phantom
+    });
   </script>
 </body>
 </html>
