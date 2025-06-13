@@ -2,53 +2,84 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SUI Wallet Connect Example</title>
+  <title>Multi-SUI Wallet Connect</title>
   <style>
     body { background: #181c24; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    #wallets { margin-bottom: 16px; }
+    .wallet-btn { padding: 12px 32px; border-radius: 8px; font-size: 1.1em; border: none; margin: 0 8px 8px 0; background: #6366f1; color: white; cursor: pointer; }
+    .wallet-btn:disabled { background: #888; }
     #address { margin-top: 20px; font-size: 1.2em; }
-    button { padding: 10px 24px; border-radius: 8px; font-size: 1.1em; border: none; background: #22c55e; color: white; cursor: pointer; }
-    button:disabled { background: #888; }
+    #error { color: #f66; margin-top: 14px; }
   </style>
 </head>
 <body>
-  <button id="connectBtn">Connect Wallet</button>
+  <div id="wallets"></div>
   <div id="address"></div>
-  <div id="error" style="color: #f66; margin-top: 12px;"></div>
+  <div id="error"></div>
   <script>
-    const btn = document.getElementById('connectBtn');
+    const walletsDiv = document.getElementById('wallets');
     const addressDiv = document.getElementById('address');
     const errorDiv = document.getElementById('error');
-    
-    btn.onclick = async () => {
-      addressDiv.textContent = '';
-      errorDiv.textContent = '';
-      btn.disabled = true;
-      
-      // Prend en compte différents wallets SUI
-      const suiWallet = window.suiWallet || window.sui;
-      if (!suiWallet) {
-        errorDiv.textContent = "No SUI wallet extension found!";
-        btn.disabled = false;
-        return;
-      }
-      
-      try {
-        // Nouvelle API Sui Wallet Standard
-        if (suiWallet.requestAccounts) {
-          const accounts = await suiWallet.requestAccounts();
-          addressDiv.textContent = "Wallet address: " + accounts[0];
-        } else if (suiWallet.connect) {
-          // API de compatibilité
-          const res = await suiWallet.connect();
-          const accounts = res.accounts || res;
-          addressDiv.textContent = "Wallet address: " + accounts[0];
-        } else {
-          errorDiv.textContent = "Wallet API not recognized!";
+
+    // Detect wallets
+    const walletProviders = [
+      {
+        name: "Phantom (SUI)",
+        key: "phantom",
+        provider: window.phantom && window.phantom.sui,
+        connect: async () => {
+          const resp = await window.phantom.sui.connect();
+          return resp.publicKey || resp.address || resp.accounts?.[0];
         }
-      } catch (e) {
-        errorDiv.textContent = "Failed to connect: " + (e.message || e);
+      },
+      {
+        name: "Slush Wallet",
+        key: "slush",
+        provider: window.slush || window.slushWallet,
+        connect: async () => {
+          // Slush expose window.slush ou window.slushWallet
+          const slush = window.slush || window.slushWallet;
+          if (!slush) throw new Error("No Slush wallet provider.");
+          // Méthode connect ou getAccount selon l'API
+          if (slush.connect) {
+            const acc = await slush.connect();
+            return acc.address || acc.accounts?.[0] || acc;
+          }
+          if (slush.getAccount) {
+            const acc = await slush.getAccount();
+            return acc.address || acc.accounts?.[0] || acc;
+          }
+          throw new Error("No recognized connect method for Slush.");
+        }
       }
-      btn.disabled = false;
+    ];
+
+    // Affichage dynamique
+    let found = false;
+    walletProviders.forEach(w => {
+      if (w.provider) {
+        found = true;
+        const btn = document.createElement('button');
+        btn.textContent = `Connect ${w.name}`;
+        btn.className = 'wallet-btn';
+        btn.onclick = async () => {
+          errorDiv.textContent = '';
+          addressDiv.textContent = '';
+          btn.disabled = true;
+          try {
+            const addr = await w.connect();
+            addressDiv.textContent = "Wallet address: " + addr;
+          } catch (e) {
+            errorDiv.textContent = "Failed to connect: " + (e.message || e);
+          }
+          btn.disabled = false;
+        };
+        walletsDiv.appendChild(btn);
+      }
+    });
+
+    if (!found) {
+      walletsDiv.textContent = "No supported SUI wallet detected (Phantom SUI or Slush Wallet).";
     }
   </script>
 </body>
