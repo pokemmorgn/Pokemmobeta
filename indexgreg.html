@@ -693,13 +693,25 @@
                           event.data.type === 'wallet-standard:register-wallet' ||
                           event.data.type === 'sui-wallet:connect' ||
                           event.data.target === 'slush-inpage' ||
-                          event.data.target === 'sui-wallet'
+                          event.data.target === 'sui-wallet' ||
+                          // IMPORTANT: Ne pas se connecter sur nos propres requêtes !
+                          (event.data.type === 'WALLET_CONNECT_REQUEST' && event.data.method === 'connect' && !event.data.fromSelf)
                       )) {
                         console.log('🌊 SLUSH RESPONSE MATCH FOUND!', event.data);
+                        
+                        // Vérifier si c'est notre propre message (éviter les boucles)
+                        if (event.data.origin === window.location.origin && 
+                            (event.data.type === 'SLUSH_CONNECT_REQUEST' || 
+                             event.data.type === 'SUI_CONNECT_REQUEST' ||
+                             event.data.type === 'WALLET_CONNECT_REQUEST')) {
+                          console.log('🌊 Ignoring our own request message');
+                          return;
+                        }
+                        
                         clearTimeout(timeout);
                         window.removeEventListener('message', handleSlushResponse);
                         window.removeEventListener('message', messageListener);
-                        resolve(event.data.result || event.data || 'Slush connected via postMessage');
+                        resolve(event.data.result || event.data || 'Slush detected via postMessage - extension may be blocked');
                       }
                     };
                     
@@ -712,14 +724,16 @@
                     window.postMessage({
                       type: 'SLUSH_CONNECT_REQUEST',
                       origin: window.location.origin,
-                      timestamp: Date.now()
+                      timestamp: Date.now(),
+                      fromSelf: true
                     }, '*');
                     
                     // Format 2: SUI générique
                     setTimeout(() => {
                       window.postMessage({
                         type: 'SUI_CONNECT_REQUEST',
-                        params: { origin: window.location.origin }
+                        params: { origin: window.location.origin },
+                        fromSelf: true
                       }, '*');
                     }, 1000);
                     
@@ -728,7 +742,8 @@
                       window.postMessage({
                         type: 'WALLET_CONNECT_REQUEST',
                         method: 'connect',
-                        params: {}
+                        params: {},
+                        fromSelf: true
                       }, '*');
                     }, 2000);
                     
