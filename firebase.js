@@ -6,7 +6,6 @@ import {
   getAuth, signInAnonymously, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
-// Configuration Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyA6xA7QiWQP99RGT8xa03IYYXFgko3cPXU",
   authDomain: "pokemmo-d0275.firebaseapp.com",
@@ -16,7 +15,6 @@ const firebaseConfig = {
   appId: "1:154574930778:web:698ff50a31a49e2b482963"
 };
 
-// Initialisation
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app, "https://pokemmo-d0275-default-rtdb.europe-west1.firebasedatabase.app");
 const auth = getAuth(app);
@@ -24,26 +22,28 @@ const auth = getAuth(app);
 let playerRef;
 export let playersData = {};
 
-// Auth + Init (appelé depuis main.js)
 export function authAndInit(player, callback) {
   signInAnonymously(auth).catch(console.error);
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       player.id = user.uid;
-
       const userRef = ref(db, "users/" + player.id);
       const snapshot = await get(userRef);
 
       if (snapshot.exists() && snapshot.val().name) {
         const userData = snapshot.val();
+        console.log("Chargement userData:", userData);
+
         player.name = userData.name;
         player.skin = userData.skin || "default";
         player.gold = userData.gold || 0;
 
-        // Récupération de la position sauvegardée (ou garder position actuelle)
-        player.x = userData.x !== undefined ? userData.x : player.x;
-        player.y = userData.y !== undefined ? userData.y : player.y;
+        // Récupérer la position, vérifie bien pour 0 aussi
+        player.x = (userData.x !== undefined) ? userData.x : player.x;
+        player.y = (userData.y !== undefined) ? userData.y : player.y;
+
+        console.log(`Position chargée: x=${player.x}, y=${player.y}`);
 
       } else {
         const input = prompt("Ton pseudo ?");
@@ -56,6 +56,7 @@ export function authAndInit(player, callback) {
           x: player.x,
           y: player.y
         });
+        console.log("Nouvel utilisateur créé:", player.name);
       }
 
       initFirebase(player);
@@ -64,7 +65,6 @@ export function authAndInit(player, callback) {
   });
 }
 
-// Enregistrement des positions en temps réel dans "players/<uid>"
 function initFirebase(player) {
   playerRef = ref(db, "players/" + player.id);
   onDisconnect(playerRef).remove();
@@ -85,11 +85,10 @@ function initFirebase(player) {
   });
 }
 
-// Mise à jour en temps réel (position + nom)
 export function syncPlayerData(player) {
   if (!player.id) return;
 
-  // Met à jour aussi la position dans "users/<uid>" pour persistance complète
+  // Mise à jour dans users/<uid>
   const userRef = ref(db, "users/" + player.id);
   set(userRef, {
     name: player.name,
@@ -97,19 +96,24 @@ export function syncPlayerData(player) {
     gold: player.gold || 0,
     x: player.x,
     y: player.y
+  }).then(() => {
+    // console.log("Position sauvegardée dans users");
+  }).catch(err => {
+    console.error("Erreur sauvegarde users:", err);
   });
 
-  // Met à jour la position dans "players/<uid>" pour multijoueur
+  // Mise à jour dans players/<uid>
   if (playerRef) {
     set(playerRef, {
       name: player.name,
       x: player.x,
       y: player.y
+    }).catch(err => {
+      console.error("Erreur sauvegarde players:", err);
     });
   }
 }
 
-// Récupération des autres joueurs (hors joueur local)
 export function getOtherPlayers() {
   return Object.entries(playersData).map(([id, p]) => ({ id, ...p }));
 }
