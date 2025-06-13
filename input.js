@@ -7,10 +7,22 @@ export function cancelTarget() {
   targetY = null;
 }
 
-export function setupInput(canvas) {
-  window.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
-  window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
+export function handleInput(canvas) {
+  setupKeyboard();
+  setupPointer(canvas);
+}
 
+function setupKeyboard() {
+  window.addEventListener("keydown", (e) => {
+    keys[e.key.toLowerCase()] = true;
+  });
+
+  window.addEventListener("keyup", (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+}
+
+function setupPointer(canvas) {
   canvas.addEventListener("click", (e) => {
     const rect = canvas.getBoundingClientRect();
     targetX = e.clientX - rect.left;
@@ -20,7 +32,9 @@ export function setupInput(canvas) {
   canvas.addEventListener("touchmove", (e) => {
     const rect = canvas.getBoundingClientRect();
     const t = e.touches[0];
-    targetX = t.clientX - rect.left;
-    targetY = t.clientY - rect.top;
+    if (t) {
+      targetX = t.clientX - rect.left;
+      targetY = t.clientY - rect.top;
+    }
   });
 }
