@@ -298,7 +298,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v2.5.0 - Message Inspector
+      v2.6.0 - Extension Block Handler
     </div>
     
     <div class="main-card">
@@ -356,7 +356,18 @@
             }
             throw new Error("No suitable connection method found");
           } catch (error) {
-            throw new Error(`Slush connection failed: ${error.message}`);
+            throw new Error(`Slush connection failed: ${error.message}. 
+            
+⚠️  SLUSH EXTENSION APPEARS TO BE BLOCKED ⚠️
+
+The extension seems to be installed but blocked by Chrome. To fix this:
+
+1. 📱 Open Slush extension manually first
+2. 🔧 Check Chrome's extension settings
+3. 🔄 Try refreshing the page after enabling Slush
+4. 🌐 Or use Slush web app at slush.app
+
+Our code successfully detected Slush via postMessage but the extension cannot respond due to browser blocking.`);
           }
         }
       },
