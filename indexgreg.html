@@ -298,7 +298,7 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v2.6.0 - Extension Block Handler
+      v3.0.0 - Auto-Fix
     </div>
     
     <div class="main-card">
@@ -1014,7 +1014,13 @@ Our code successfully detected Slush via postMessage but the extension cannot re
         
       } catch (error) {
         console.error('Connection error:', error);
-        showStatus(`❌ Failed to connect to ${wallet.name}: ${error.message}`, 'error');
+        
+        // Message d'erreur formaté spécialement pour Slush
+        if (wallet.name.includes('Slush') && error.message.includes('🌊')) {
+          showStatus(error.message, 'error');
+        } else {
+          showStatus(`❌ Failed to connect to ${wallet.name}: ${error.message}`, 'error');
+        }
       }
     }
 
