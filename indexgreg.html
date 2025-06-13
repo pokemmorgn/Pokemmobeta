@@ -319,7 +319,7 @@
       
       <!-- Version Badge -->
       <div style="position: absolute; top: 10px; left: 10px; background: rgba(108, 92, 231, 0.2); border: 1px solid rgba(108, 92, 231, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a29bfe; z-index: 9999;">
-        v4.0.0 - Debug Mode
+        v4.1.0 - Wait for Injection
       </div>
       
       <div class="phantom-logo">👻</div>
@@ -384,9 +384,48 @@
     let currentWallet = null;
     let currentAddress = null;
 
-    // Vérifier si Phantom est installé
-    function isPhantomInstalled() {
-      return !!(window.phantom && (window.phantom.sui || window.phantom.solana));
+    // Attendre que Phantom injecte ses APIs
+    async function waitForPhantom(maxWait = 10000) {
+      return new Promise((resolve) => {
+        const startTime = Date.now();
+        
+        const checkPhantom = () => {
+          const elapsed = Date.now() - startTime;
+          
+          // Vérifier si Phantom est complètement chargé
+          if (window.phantom && 
+              (window.phantom.sui || window.phantom.solana) &&
+              Object.keys(window.phantom).length > 0) {
+            console.log(`✅ Phantom loaded after ${elapsed}ms`);
+            resolve(true);
+            return;
+          }
+          
+          if (elapsed >= maxWait) {
+            console.log(`⏰ Timeout waiting for Phantom after ${elapsed}ms`);
+            resolve(false);
+            return;
+          }
+          
+          // Réessayer dans 100ms
+          setTimeout(checkPhantom, 100);
+        };
+        
+        checkPhantom();
+      });
+    }
+
+    // Vérifier si Phantom est installé (version améliorée)
+    async function isPhantomInstalled() {
+      // Vérification immédiate
+      if (window.phantom && Object.keys(window.phantom).length > 0) {
+        return true;
+      }
+      
+      // Attendre que Phantom charge
+      console.log('🔄 Waiting for Phantom to load...');
+      const loaded = await waitForPhantom();
+      return loaded;
     }
 
     // Afficher le statut
@@ -477,14 +516,17 @@
     // Se connecter au wallet
     async function connectWallet() {
       try {
-        // Debug complet
-        debugPhantomAPIs();
+        // Attendre que Phantom soit complètement chargé
+        const phantomAvailable = await isPhantomInstalled();
         
-        if (!isPhantomInstalled()) {
-          throw new Error('Phantom wallet is not installed');
+        if (!phantomAvailable) {
+          throw new Error('Phantom wallet is not installed or failed to load');
         }
 
         showStatus('🔄 Connecting to Phantom...', 'info');
+        
+        // Debug complet APRÈS que Phantom soit chargé
+        debugPhantomAPIs();
         
         // Stratégie 1: Essayer toutes les méthodes SUI possibles
         if (window.phantom.sui) {
@@ -492,29 +534,31 @@
           const suiProvider = window.phantom.sui;
           
           // Méthode A: Standard connect
-          try {
-            console.log('🔧 Trying direct connect()');
-            const result = await suiProvider.connect();
-            console.log('🔧 Direct connect result:', result);
-            
-            if (result && (result.accounts || result.account || result.address)) {
-              currentWallet = suiProvider;
-              currentAddress = result.accounts?.[0] || result.account || result.address;
+          if (typeof suiProvider.connect === 'function') {
+            try {
+              console.log('🔧 Trying direct connect()');
+              const result = await suiProvider.connect();
+              console.log('🔧 Direct connect result:', result);
               
-              document.getElementById('walletAddress').textContent = 
-                `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-              
-              showStatus('🎉 Successfully connected via SUI direct connect!', 'success');
-              updateUI(true);
-              await getBalance();
-              return true;
+              if (result && (result.accounts || result.account || result.address)) {
+                currentWallet = suiProvider;
+                currentAddress = result.accounts?.[0] || result.account || result.address;
+                
+                document.getElementById('walletAddress').textContent = 
+                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+                
+                showStatus('🎉 Successfully connected via SUI direct connect!', 'success');
+                updateUI(true);
+                await getBalance();
+                return true;
+              }
+            } catch (directError) {
+              console.log('🔧 Direct connect failed:', directError);
             }
-          } catch (directError) {
-            console.log('🔧 Direct connect failed:', directError);
           }
           
           // Méthode B: Request method
-          if (suiProvider.request) {
+          if (typeof suiProvider.request === 'function') {
             try {
               console.log('🔧 Trying request method for SUI');
               const accounts = await suiProvider.request({
@@ -540,7 +584,7 @@
           }
           
           // Méthode C: getAccounts direct (si déjà connecté)
-          if (suiProvider.getAccounts) {
+          if (typeof suiProvider.getAccounts === 'function') {
             try {
               console.log('🔧 Trying getAccounts() for SUI');
               const accounts = await suiProvider.getAccounts();
@@ -585,11 +629,18 @@
               return true;
             }
             
-            // Nouvelle connexion
+            // Nouvelle connexion avec retry
             console.log('🔧 Attempting new Solana connection');
-            const response = await solanaProvider.connect({ 
-              onlyIfTrusted: false 
-            });
+            
+            // Essayer avec différents paramètres
+            let response;
+            try {
+              response = await solanaProvider.connect({ onlyIfTrusted: false });
+            } catch (firstTry) {
+              console.log('🔧 First Solana attempt failed, trying without params:', firstTry);
+              response = await solanaProvider.connect();
+            }
+            
             console.log('🔧 Solana connect response:', response);
             
             if (response && response.publicKey) {
@@ -609,8 +660,43 @@
           }
         }
         
+        // Stratégie 3: Forcer l'ouverture de Phantom
+        console.log('🔧 Trying to manually trigger Phantom popup...');
+        try {
+          // Déclencher manuellement l'événement de connexion
+          window.dispatchEvent(new CustomEvent('phantom-connect'));
+          
+          // Attendre un peu pour voir si Phantom répond
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Réessayer la détection
+          if (window.phantom.solana && window.phantom.solana.publicKey) {
+            currentWallet = window.phantom.solana;
+            currentAddress = window.phantom.solana.publicKey.toString();
+            
+            document.getElementById('walletAddress').textContent = 
+              `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
+            
+            showStatus('🎉 Connected after manual trigger!', 'success');
+            updateUI(true);
+            await getBalance();
+            return true;
+          }
+        } catch (manualError) {
+          console.log('🔧 Manual trigger failed:', manualError);
+        }
+        
         // Si tout échoue, donner des instructions détaillées
-        throw new Error(`Connection failed. Debug info: SUI API available: ${!!window.phantom.sui}, Solana API available: ${!!window.phantom.solana}. Check browser console for detailed logs.`);
+        throw new Error(`All connection methods failed. 
+        
+Available APIs after wait:
+- SUI: ${!!window.phantom.sui} (methods: ${window.phantom.sui ? Object.getOwnPropertyNames(window.phantom.sui).join(', ') : 'none'})
+- Solana: ${!!window.phantom.solana} (methods: ${window.phantom.solana ? Object.getOwnPropertyNames(window.phantom.solana).join(', ') : 'none'})
+
+Try:
+1. Refresh the page
+2. Make sure Phantom is unlocked
+3. Check Phantom settings for dApp permissions`);
         
       } catch (error) {
         console.error('Connection error:', error);
@@ -620,7 +706,7 @@
           errorMessage = 'Connection cancelled by user';
         } else if (error.message.includes('not installed')) {
           errorMessage = 'Phantom wallet is not installed';
-        } else if (error.message.includes('Debug info')) {
+        } else if (error.message.includes('All connection methods failed')) {
           errorMessage = error.message;
         } else {
           errorMessage = `${error.message}. Check console for debug info.`;
@@ -876,18 +962,25 @@
     }
 
     // Initialisation au chargement de la page
-    window.addEventListener('load', () => {
-      // Attendre un peu pour que Phantom soit complètement chargé
-      setTimeout(() => {
+    window.addEventListener('load', async () => {
+      console.log('🚀 Page loaded, initializing...');
+      
+      // Attendre un peu plus longtemps pour que toutes les extensions se chargent
+      setTimeout(async () => {
+        console.log('🔍 Starting Phantom detection...');
+        
+        const phantomAvailable = await isPhantomInstalled();
         updateUI(false);
         setupWalletListeners();
         
-        if (isPhantomInstalled()) {
+        if (phantomAvailable) {
           showStatus('👻 Phantom wallet detected! Click to connect.', 'success');
+          console.log('✅ Phantom is ready');
         } else {
           showStatus('⚠️ Phantom wallet not found. Please install it.', 'error');
+          console.log('❌ Phantom not available after waiting');
         }
-      }, 1000);
+      }, 2000); // Attendre 2 secondes au lieu de 1
     });
 
     // Gestion des erreurs globales
