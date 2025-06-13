@@ -4,7 +4,8 @@
   "description": "MMO Pokémon-like with Colyseus Cloud",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "echo \"No build needed for server-only Colyseus app\""
   },
   "dependencies": {
     "colyseus": "^0.16.4",
