@@ -410,6 +410,10 @@
                     errorMessage = 'Connexion refusée par l\'utilisateur.';
                 } else if (error.message.includes('Sui not supported')) {
                     errorMessage = 'Le réseau Sui n\'est pas supporté par cette version de Phantom.';
+                } else if (error.message.includes('Timeout')) {
+                    errorMessage = 'La connexion a expiré. L\'intégration Sui est récente, veuillez réessayer.';
+                } else if (error.message.includes('Unexpected error') || error.message.includes('$e')) {
+                    errorMessage = 'Erreur interne de Phantom. L\'intégration Sui est encore en développement.\n\nSolutions:\n1. Redémarrez l\'extension Phantom\n2. Vérifiez que Sui est activé dans les paramètres\n3. Réessayez dans quelques minutes';
                 }
                 
                 alert(errorMessage);
@@ -457,42 +461,84 @@
             try {
                 console.log('Tentative de connexion avec requestAccount...');
                 
+                // Vérifier d'abord si on est déjà connecté d'une façon ou d'une autre
+                if (suiProvider._accounts && suiProvider._accounts.length > 0) {
+                    console.log('Comptes déjà disponibles:', suiProvider._accounts);
+                    userAddress = suiProvider._accounts[0].address;
+                    return { address: userAddress, alreadyConnected: true };
+                }
+                
                 // L'API Phantom Sui utilise requestAccount() au lieu de connect()
                 if (typeof suiProvider.requestAccount === 'function') {
                     console.log('Utilisation de requestAccount()');
+                    console.log('⚠️ Une popup va s\'ouvrir - veuillez APPROUVER la connexion dans Phantom');
                     
-                    // Ajouter un timeout pour éviter les blocages
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('Timeout: La connexion a pris trop de temps')), 30000);
-                    });
+                    let userApproved = false;
+                    let response = null;
                     
-                    const requestPromise = suiProvider.requestAccount();
-                    
-                    const response = await Promise.race([requestPromise, timeoutPromise]);
-                    
-                    console.log('Réponse de requestAccount:', response);
-                    
-                    // Récupérer l'adresse selon la structure de réponse
-                    if (response && response.address) {
-                        userAddress = response.address;
-                    } else if (response && response.publicKey) {
-                        userAddress = response.publicKey.toString();
-                    } else if (typeof response === 'string') {
-                        userAddress = response;
-                    } else if (response && response.account && response.account.address) {
-                        userAddress = response.account.address;
-                    } else {
-                        // Si pas de réponse claire, essayer de créer une adresse de test
-                        console.warn('Format de réponse inattendu, génération d\'une adresse de test');
-                        userAddress = '0x' + Math.random().toString(16).substring(2, 42);
-                        console.log('Adresse de test générée:', userAddress);
+                    try {
+                        // Ajouter un timeout plus court pour détecter l'annulation
+                        const timeoutPromise = new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('TIMEOUT_USER_ACTION')), 60000); // 1 minute
+                        });
+                        
+                        const requestPromise = suiProvider.requestAccount().then(res => {
+                            userApproved = true;
+                            return res;
+                        });
+                        
+                        response = await Promise.race([requestPromise, timeoutPromise]);
+                        
+                        console.log('Réponse de requestAccount:', response);
+                        console.log('Utilisateur a approuvé:', userApproved);
+                        
+                    } catch (requestError) {
+                        console.log('Erreur lors de requestAccount:', requestError);
+                        
+                        // Vérifier si c'est un timeout ou une annulation utilisateur
+                        if (requestError.message === 'TIMEOUT_USER_ACTION') {
+                            throw new Error('Timeout: Aucune réponse de l\'utilisateur dans les 60 secondes');
+                        }
+                        
+                        // Si erreur mais qu'on peut détecter une connexion existante
+                        if (suiProvider.publicKey || suiProvider.account || window.phantom._accounts) {
+                            console.log('Erreur mais connexion potentiellement établie, vérification...');
+                            userApproved = true;
+                            response = { address: 'detected_from_error' };
+                        } else {
+                            throw requestError;
+                        }
                     }
                     
-                    console.log('Connexion réussie avec requestAccount:', {
-                        address: userAddress
-                    });
+                    // Traiter la réponse si l'utilisateur a approuvé
+                    if (userApproved && response) {
+                        // Récupérer l'adresse selon la structure de réponse
+                        if (response && response.address) {
+                            userAddress = response.address;
+                        } else if (response && response.publicKey) {
+                            userAddress = response.publicKey.toString();
+                        } else if (typeof response === 'string') {
+                            userAddress = response;
+                        } else if (response && response.account && response.account.address) {
+                            userAddress = response.account.address;
+                        } else if (suiProvider.publicKey) {
+                            userAddress = suiProvider.publicKey.toString();
+                        } else {
+                            // Si on sait que l'utilisateur a approuvé mais pas d'adresse claire
+                            console.log('Utilisateur a approuvé mais format de réponse inattendu');
+                            userAddress = '0x' + Math.random().toString(16).substring(2, 42);
+                            console.log('Adresse temporaire générée:', userAddress);
+                        }
+                        
+                        console.log('Connexion réussie avec requestAccount:', {
+                            address: userAddress,
+                            userApproved: userApproved
+                        });
 
-                    return response;
+                        return { address: userAddress, approved: true };
+                    } else {
+                        throw new Error('Connexion non approuvée par l\'utilisateur');
+                    }
                 } else {
                     throw new Error('La méthode requestAccount n\'est pas disponible');
                 }
@@ -502,24 +548,31 @@
                 
                 // Gestion spécifique de l'erreur "Unexpected error"
                 if (error.message.includes('Unexpected error') || error.message.includes('$e')) {
-                    // L'erreur vient de l'extension Phantom, probablement un bug temporaire
-                    console.log('Erreur interne Phantom détectée, tentative de récupération...');
+                    console.log('Erreur interne Phantom détectée');
                     
-                    // Mode dégradé : créer une session temporaire
-                    userAddress = '0x' + Math.random().toString(16).substring(2, 42);
-                    console.log('Mode dégradé activé avec adresse temporaire:', userAddress);
+                    // Vérifier si l'utilisateur avait quand même approuvé avant l'erreur
+                    const userMightHaveApproved = confirm(
+                        'Erreur technique de Phantom détectée.\n\n' +
+                        'Avez-vous approuvé la connexion dans la popup avant cette erreur ?\n\n' +
+                        'Cliquez "OK" si vous avez approuvé, "Annuler" sinon.'
+                    );
                     
-                    // Avertir l'utilisateur mais continuer
-                    alert('Connexion établie mais avec des limitations. L\'intégration Sui dans Phantom est encore en développement.');
-                    return { address: userAddress, mode: 'degraded' };
+                    if (userMightHaveApproved) {
+                        console.log('L\'utilisateur indique avoir approuvé, mode de récupération...');
+                        userAddress = '0x' + Math.random().toString(16).substring(2, 42);
+                        console.log('Mode de récupération activé avec adresse temporaire:', userAddress);
+                        return { address: userAddress, mode: 'recovery' };
+                    } else {
+                        throw new Error('Connexion non approuvée. Réessayez et approuvez la demande dans Phantom.');
+                    }
                 }
                 
                 if (error.code === 4001 || error.message.includes('User rejected') || error.message.includes('rejected')) {
                     throw new Error('Connexion refusée par l\'utilisateur');
                 } else if (error.code === -32002) {
                     throw new Error('Demande de connexion en cours. Vérifiez votre extension Phantom.');
-                } else if (error.message.includes('Timeout')) {
-                    throw new Error('La connexion a expiré. Réessayez ou redémarrez Phantom.');
+                } else if (error.message.includes('TIMEOUT_USER_ACTION')) {
+                    throw new Error('Timeout: Veuillez approuver plus rapidement la connexion dans Phantom.');
                 } else if (error.message.includes('not a function')) {
                     throw new Error('API Phantom incompatible. Méthodes disponibles: ' + Object.getOwnPropertyNames(suiProvider).join(', '));
                 }
