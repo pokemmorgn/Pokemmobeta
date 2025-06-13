@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Universal Wallet Connector</title>
+  <title>Phantom Wallet Connector</title>
   <style>
     * {
       box-sizing: border-box;
@@ -74,6 +74,12 @@
       transform: translateY(0);
     }
 
+    .connect-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .status {
       margin-top: 20px;
       padding: 15px;
@@ -93,141 +99,10 @@
       color: #f87171;
     }
 
-    /* Modal Styles */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(8px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .modal-overlay.show {
-      display: flex;
-    }
-
-    .modal {
-      background: #1e293b;
-      border-radius: 20px;
-      padding: 30px;
-      max-width: 450px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-      animation: slideUp 0.3s ease;
-    }
-
-    .modal-header {
-      text-align: center;
-      margin-bottom: 25px;
-    }
-
-    .modal-title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #f1f5f9;
-      margin-bottom: 8px;
-    }
-
-    .modal-subtitle {
-      color: #94a3b8;
-      font-size: 0.95rem;
-    }
-
-    .wallet-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .wallet-item {
-      display: flex;
-      align-items: center;
-      padding: 16px;
-      background: rgba(51, 65, 85, 0.6);
-      border: 1px solid rgba(99, 102, 241, 0.2);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .wallet-item:hover {
-      background: rgba(99, 102, 241, 0.1);
-      border-color: rgba(99, 102, 241, 0.4);
-      transform: translateY(-1px);
-    }
-
-    .wallet-item.not-available {
-      opacity: 0.5;
-      cursor: not-allowed;
-      background: rgba(51, 65, 85, 0.3);
-    }
-
-    .wallet-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      margin-right: 15px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    }
-
-    .wallet-info {
-      flex: 1;
-    }
-
-    .wallet-name {
-      font-weight: 600;
-      color: #f1f5f9;
-      margin-bottom: 4px;
-    }
-
-    .wallet-status {
-      font-size: 0.85rem;
-      color: #94a3b8;
-    }
-
-    .wallet-status.installed {
-      color: #4ade80;
-    }
-
-    .wallet-status.not-installed {
-      color: #f87171;
-    }
-
-    .close-btn {
-      position: absolute;
-      top: 15px;
-      right: 20px;
-      background: none;
-      border: none;
-      color: #94a3b8;
-      font-size: 1.5rem;
-      cursor: pointer;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .close-btn:hover {
-      background: rgba(99, 102, 241, 0.2);
-      color: #f1f5f9;
+    .status.info {
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
     }
 
     .address-display {
@@ -241,56 +116,28 @@
       color: #a5f3fc;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes slideUp {
-      from { 
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to { 
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .no-wallets {
-      text-align: center;
-      padding: 30px 20px;
-      color: #94a3b8;
-    }
-
-    .no-wallets-icon {
+    .phantom-icon {
       font-size: 3rem;
       margin-bottom: 15px;
-      opacity: 0.5;
-    }
-
-    .install-links {
-      margin-top: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
     }
 
     .install-link {
       display: inline-block;
-      padding: 8px 16px;
+      padding: 12px 24px;
       background: rgba(99, 102, 241, 0.2);
       border: 1px solid rgba(99, 102, 241, 0.3);
       border-radius: 8px;
       color: #a5b4fc;
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 1rem;
       transition: all 0.2s ease;
+      margin-top: 15px;
     }
 
     .install-link:hover {
       background: rgba(99, 102, 241, 0.3);
       color: #c7d2fe;
+      transform: translateY(-1px);
     }
   </style>
 </head>
@@ -298,628 +145,144 @@
   <div class="container">
     <!-- Version Badge -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
-      v3.1.0 - Display Fix
+      v4.3.0 - Check Connection Status
     </div>
     
     <div class="main-card">
-      <h1>🌟 Connect Wallet</h1>
-      <p class="subtitle">Connect your favorite SUI wallet to get started</p>
+      <div class="phantom-icon">👻</div>
+      <h1>Connect Phantom</h1>
+      <p class="subtitle">Connect your Phantom wallet for SUI blockchain</p>
       
-      <button class="connect-btn" onclick="openWalletModal()">
-        Choose Wallet
+      <button class="connect-btn" id="connectBtn" onclick="connectPhantom()">
+        Connect Phantom Wallet
       </button>
       
       <div id="status"></div>
     </div>
   </div>
 
-  <!-- Modal -->
-  <div class="modal-overlay" id="walletModal">
-    <div class="modal">
-      <button class="close-btn" onclick="closeWalletModal()">×</button>
-      
-      <div class="modal-header">
-        <h2 class="modal-title">Connect a Wallet</h2>
-        <p class="modal-subtitle">Choose your preferred wallet to connect</p>
-      </div>
-      
-      <div class="wallet-list" id="walletList">
-        <!-- Wallets will be populated here -->
-      </div>
-    </div>
-  </div>
-
   <script>
-    // Configuration des wallets avec leurs informations
-    const WALLET_CONFIGS = [
-      {
-        id: 'slush',
-        name: 'Slush Wallet',
-        icon: '🌊',
-        description: 'Official Sui Wallet (formerly Sui Wallet)',
-        installUrl: 'https://chromewebstore.google.com/detail/slush-%E2%80%94-a-sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil',
-        detectors: ['suiWallet', 'slush', 'slushWallet'],
-        connectMethod: async (provider) => {
-          // Essayer plusieurs méthodes de connexion pour Slush
-          try {
-            if (provider.connect) {
-              const result = await provider.connect();
-              return result.accounts?.[0] || result.address || result;
-            }
-            if (provider.requestConnection) {
-              const result = await provider.requestConnection();
-              return result.accounts?.[0] || result.address || result;
-            }
-            if (provider.enable) {
-              const result = await provider.enable();
-              return result.accounts?.[0] || result.address || result;
-            }
-            throw new Error("No suitable connection method found");
-          } catch (error) {
-            throw new Error(`Slush connection failed: ${error.message}. 
-            
-⚠️  SLUSH EXTENSION APPEARS TO BE BLOCKED ⚠️
-
-The extension seems to be installed but blocked by Chrome. To fix this:
-
-1. 📱 Open Slush extension manually first
-2. 🔧 Check Chrome's extension settings
-3. 🔄 Try refreshing the page after enabling Slush
-4. 🌐 Or use Slush web app at slush.app
-
-Our code successfully detected Slush via postMessage but the extension cannot respond due to browser blocking.`);
-          }
-        }
-      },
-      {
-        id: 'phantom',
-        name: 'Phantom',
-        icon: '👻',
-        description: 'Multi-chain wallet with SUI support',
-        installUrl: 'https://phantom.app/',
-        detectors: ['phantom'],
-        connectMethod: async (provider) => {
-          try {
-            console.log('🔧 Attempting Phantom connection with provider:', provider);
-            console.log('🔧 Provider methods:', Object.getOwnPropertyNames(provider));
-            
-            // Méthode 1: SUI spécifique (on l'a trouvé dans les logs !)
-            if (provider.sui && provider.sui.connect) {
-              console.log('🔧 Trying provider.sui.connect()');
-              const result = await provider.sui.connect();
-              console.log('🔧 SUI Connect result:', result);
-              return result.accounts?.[0] || result.address || JSON.stringify(result);
-            }
-            
-            // Méthode 2: Connection Solana standard
-            if (provider.connect) {
-              console.log('🔧 Trying standard connect()');
-              const result = await provider.connect({ onlyIfTrusted: false });
-              console.log('🔧 Connect result:', result);
-              return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
-            }
-            
-            // Méthode 3: Solana spécifique
-            if (provider.solana && provider.solana.connect) {
-              console.log('🔧 Trying provider.solana.connect()');
-              const result = await provider.solana.connect({ onlyIfTrusted: false });
-              console.log('🔧 Solana Connect result:', result);
-              return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
-            }
-            
-            // Méthode 4: Request method
-            if (provider.request) {
-              console.log('🔧 Trying request method');
-              try {
-                const accounts = await provider.request({ method: 'connect' });
-                return accounts?.[0] || JSON.stringify(accounts);
-              } catch (reqError) {
-                console.log('🔧 Request failed, trying eth_requestAccounts');
-                const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                return accounts?.[0] || JSON.stringify(accounts);
-              }
-            }
-            
-            // Méthode 5: Enable method
-            if (provider.enable) {
-              console.log('🔧 Trying enable()');
-              const result = await provider.enable();
-              return result?.[0] || JSON.stringify(result);
-            }
-            
-            throw new Error(`No connection method worked. Available methods: ${Object.getOwnPropertyNames(provider).join(', ')}`);
-          } catch (error) {
-            console.error('🔧 Phantom connection error:', error);
-            throw new Error(`Phantom connection failed: ${error.message}`);
-          }
-        }
-      },
-      {
-        id: 'martian',
-        name: 'Martian Wallet',
-        icon: '🚀',
-        description: 'Aptos & Sui wallet',
-        installUrl: 'https://chromewebstore.google.com/detail/martian-aptos-wallet/efbglgofoippbgcjepnhiblaibcnclgk',
-        detectors: ['martian'],
-        connectMethod: async (provider) => {
-          const result = await provider.connect();
-          return result.address || result.accounts?.[0] || result;
-        }
-      },
-      {
-        id: 'suiet',
-        name: 'Suiet Wallet',
-        icon: '💎',
-        description: 'Sui-native wallet',
-        installUrl: 'https://chromewebstore.google.com/detail/suiet-sui-wallet/khpkpbbcccdmmclmpigdgddabeilkdpd',
-        detectors: ['suiet'],
-        connectMethod: async (provider) => {
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
-        }
-      },
-      {
-        id: 'ethos',
-        name: 'Ethos Wallet',
-        icon: '🔷',
-        description: 'User-friendly Sui wallet',
-        installUrl: 'https://chromewebstore.google.com/detail/ethos-sui-wallet/mcbigmjiafegjnnogedioegffbooigli',
-        detectors: ['ethosWallet', 'ethos'],
-        connectMethod: async (provider) => {
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
-        }
-      },
-      {
-        id: 'nightly',
-        name: 'Nightly Wallet',
-        icon: '🌙',
-        description: 'Multi-chain wallet',
-        installUrl: 'https://chromewebstore.google.com/detail/nightly/fhhkkonadjkagfigfdankcfomhmjpiag',
-        detectors: ['nightly'],
-        connectMethod: async (provider) => {
-          const result = await provider.connect();
-          return result.accounts?.[0] || result.address || result;
-        }
-      }
-    ];
-
-    // Fonction pour détecter les wallets disponibles
-    function detectWallets() {
-      const detectedWallets = [];
-      
-      // Fonction de debug pour voir TOUS les objets window
-      const debugAllWindowObjects = () => {
-        const allObjects = {};
-        const walletLikeObjects = {};
-        
-        for (const key in window) {
-          try {
-            const obj = window[key];
-            allObjects[key] = typeof obj;
-            
-            // Rechercher les objets qui peuvent être des wallets
-            if (obj && typeof obj === 'object') {
-              if (typeof obj.connect === 'function' || 
-                  typeof obj.enable === 'function' ||
-                  typeof obj.request === 'function' ||
-                  key.toLowerCase().includes('wallet') ||
-                  key.toLowerCase().includes('sui') ||
-                  key.toLowerCase().includes('phantom') ||
-                  key.toLowerCase().includes('slush')) {
-                
-                walletLikeObjects[key] = {
-                  type: typeof obj,
-                  hasConnect: !!obj.connect,
-                  hasEnable: !!obj.enable,
-                  hasRequest: !!obj.request,
-                  methods: Object.getOwnPropertyNames(obj).slice(0, 10), // Premiers 10 pour éviter spam
-                  // Debug plus poussé pour Phantom
-                  ...(key.toLowerCase().includes('phantom') ? {
-                    phantomDetails: {
-                      isPhantom: obj.isPhantom,
-                      sui: !!obj.sui,
-                      solana: !!obj.solana,
-                      ethereum: !!obj.ethereum,
-                      suiMethods: obj.sui ? Object.getOwnPropertyNames(obj.sui) : null,
-                      allKeys: Object.keys(obj)
-                    }
-                  } : {}),
-                  // Pour tous les objets, montrer leurs sous-propriétés
-                  subProperties: Object.keys(obj).filter(k => 
-                    k.toLowerCase().includes('sui') || 
-                    k.toLowerCase().includes('connect') ||
-                    k.toLowerCase().includes('wallet')
-                  )
-                };
-              }
-            }
-          } catch (e) {
-            // Ignorer les erreurs d'accès
-          }
-        }
-        
-        // Chercher aussi dans les événements Wallet Standard
-        const checkWalletStandard = () => {
-          try {
-            // Écouter les événements wallet-standard
-            window.addEventListener('wallet-standard:register-wallet', (event) => {
-              console.log('🎯 WALLET STANDARD EVENT:', event.detail);
-            });
-            
-            // Déclencher la détection
-            window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', {
-              detail: { name: 'Wallet Connector' }
-            }));
-            
-            // Vérifier si des wallets sont déjà enregistrés
-            if (window.navigator && window.navigator.wallets) {
-              console.log('🎯 NAVIGATOR WALLETS:', window.navigator.wallets);
-            }
-            
-            return true;
-          } catch (e) {
-            console.log('❌ Wallet Standard not supported:', e);
-            return false;
-          }
-        };
-        
-        console.log('🔍 ALL WINDOW OBJECTS:', allObjects);
-        console.log('🎯 WALLET-LIKE OBJECTS:', walletLikeObjects);
-        console.log('📡 WALLET STANDARD CHECK:', checkWalletStandard());
-        
-        // Recherche spéciale pour les objets cachés
-        const hiddenWallets = {};
-        ['phantom', 'sui', 'slush', 'suiWallet', 'solana'].forEach(name => {
-          if (window[name]) {
-            hiddenWallets[name] = {
-              exists: true,
-              type: typeof window[name],
-              methods: Object.getOwnPropertyNames(window[name]),
-              connect: !!window[name].connect,
-              request: !!window[name].request
-            };
-          }
-        });
-        console.log('🔍 DIRECT WALLET CHECK:', hiddenWallets);
-        
-        return walletLikeObjects;
-      };
-
-      // Exécuter le debug
-      const walletLikeObjects = debugAllWindowObjects();
-      
-      for (const config of WALLET_CONFIGS) {
-        let provider = null;
-        let isInstalled = false;
-        let detectedVia = null;
-
-        // Essayer chaque détecteur configuré
-        for (const detector of config.detectors) {
-          if (window[detector]) {
-            provider = window[detector];
-            isInstalled = true;
-            detectedVia = detector;
-            break;
-          }
-        }
-
-        // Si pas trouvé avec les détecteurs standards, essayer la recherche dynamique
-        if (!isInstalled) {
-          // Recherche générique par mots-clés
-          for (const [key, obj] of Object.entries(walletLikeObjects)) {
-            const keyLower = key.toLowerCase();
-            const configId = config.id.toLowerCase();
-            
-            if (keyLower.includes(configId) || 
-                (configId === 'slush' && (keyLower.includes('sui') || keyLower.includes('slush'))) ||
-                (configId === 'phantom' && keyLower.includes('phantom'))) {
-              
-              provider = window[key];
-              isInstalled = true;
-              detectedVia = `${key} (dynamic detection)`;
-              console.log(`🎯 Found ${config.name} via dynamic detection: ${key}`, window[key]);
-              break;
-            }
-          }
-        }
-
-        // Recherche ULTRA-SPÉCIALISÉE pour Slush
-        if (!isInstalled && config.id === 'slush') {
-          console.log('🌊 Starting specialized Slush detection...');
+    // Configuration Phantom uniquement
+    const PHANTOM_CONFIG = {
+      id: 'phantom',
+      name: 'Phantom',
+      icon: '👻',
+      description: 'Multi-chain wallet with SUI support',
+      installUrl: 'https://phantom.app/',
+      detectors: ['phantom'],
+      connectMethod: async (provider) => {
+        try {
+          console.log('🔧 Attempting Phantom SUI connection with provider:', provider);
+          console.log('🔧 Provider structure:', {
+            hasSui: !!provider.sui,
+            suiMethods: provider.sui ? Object.getOwnPropertyNames(provider.sui) : 'No SUI',
+            hasConnect: !!provider.sui?.connect,
+            suiType: typeof provider.sui,
+            suiValue: provider.sui
+          });
           
-          // Méthode 1: Chercher dans tous les objets qui ont des méthodes de connexion
-          for (const [key, objInfo] of Object.entries(walletLikeObjects)) {
-            const obj = window[key];
-            if (obj && (objInfo.hasConnect || objInfo.hasEnable)) {
-              // Vérifier si c'est potentiellement Slush par inspection
-              const objString = obj.toString();
-              const hasSlushIndicators = objString.includes('sui') || 
-                                       objString.includes('Sui') || 
-                                       objString.includes('slush') ||
-                                       objString.includes('Slush');
-              
-              if (hasSlushIndicators) {
-                provider = obj;
-                isInstalled = true;
-                detectedVia = `${key} (Slush indicators found)`;
-                console.log(`🌊 Found Slush via indicators in ${key}:`, obj);
-                break;
-              }
-            }
-          }
-          
-          // Méthode 2: Vérifier les événements postMessage (Slush peut utiliser ça)
-          if (!isInstalled) {
-            console.log('🌊 Checking for Slush postMessage API...');
+          // VÉRIFIER D'ABORD SI DÉJÀ CONNECTÉ !
+          if (provider.sui) {
+            console.log('🔧 SUI exists! Checking connection status first...');
+            
+            // Vérifier si déjà connecté
             try {
-              // Écouter TOUS les messages pour voir ce que Slush envoie réellement
-              const messageListener = (event) => {
-                // Log détaillé de TOUS les messages
-                console.log('🌊 Received message:', {
-                  data: event.data,
-                  origin: event.origin,
-                  type: typeof event.data,
-                  stringified: JSON.stringify(event.data),
-                  keys: event.data && typeof event.data === 'object' ? Object.keys(event.data) : 'N/A'
-                });
-                
-                // Chercher spécifiquement les messages liés à Sui/Slush
-                if (event.data && typeof event.data === 'object') {
-                  const dataStr = JSON.stringify(event.data).toLowerCase();
-                  if (dataStr.includes('sui') || dataStr.includes('slush') || dataStr.includes('wallet') || dataStr.includes('connect')) {
-                    console.log('🌊 POTENTIAL SLUSH MESSAGE DETECTED:', event.data);
-                  }
+              if (provider.sui.isConnected && provider.sui.isConnected()) {
+                console.log('🔧 Already connected to Phantom SUI!');
+                // Essayer de récupérer le compte existant
+                if (provider.sui.getAccount) {
+                  const existingAccount = await provider.sui.getAccount();
+                  return existingAccount || 'Already connected to Phantom SUI';
                 }
-              };
-              window.addEventListener('message', messageListener);
-              
-              // Créer un provider postMessage pour Slush
-              const postMessageProvider = {
-                connect: async () => {
-                  return new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => {
-                      window.removeEventListener('message', messageListener);
-                      reject(new Error('Slush connection timeout - no response received'));
-                    }, 15000);
-                    
-                    const handleSlushResponse = (event) => {
-                      console.log('🌊 Checking message for Slush response:', {
-                        data: event.data,
-                        dataType: typeof event.data,
-                        stringified: JSON.stringify(event.data),
-                        hasType: !!(event.data && event.data.type),
-                        hasMethod: !!(event.data && event.data.method),
-                        hasResult: !!(event.data && event.data.result)
-                      });
-                      
-                      // Rechercher différents formats de réponse
-                      if (event.data && (
-                          event.data.type === 'SLUSH_CONNECT_RESPONSE' ||
-                          event.data.type === 'SUI_CONNECT_RESPONSE' ||
-                          event.data.type === 'WALLET_CONNECT_RESPONSE' ||
-                          (event.data.method && event.data.method.includes('connect')) ||
-                          (event.data.result && event.data.result.accounts) ||
-                          // Nouveaux patterns à chercher
-                          event.data.type === 'wallet-standard:register-wallet' ||
-                          event.data.type === 'sui-wallet:connect' ||
-                          event.data.target === 'slush-inpage' ||
-                          event.data.target === 'sui-wallet' ||
-                          // IMPORTANT: Ne pas se connecter sur nos propres requêtes !
-                          (event.data.type === 'WALLET_CONNECT_REQUEST' && event.data.method === 'connect' && !event.data.fromSelf)
-                      )) {
-                        console.log('🌊 SLUSH RESPONSE MATCH FOUND!', event.data);
-                        
-                        // Vérifier si c'est notre propre message (éviter les boucles)
-                        if (event.data.origin === window.location.origin && 
-                            (event.data.type === 'SLUSH_CONNECT_REQUEST' || 
-                             event.data.type === 'SUI_CONNECT_REQUEST' ||
-                             event.data.type === 'WALLET_CONNECT_REQUEST')) {
-                          console.log('🌊 Ignoring our own request message');
-                          return;
-                        }
-                        
-                        clearTimeout(timeout);
-                        window.removeEventListener('message', handleSlushResponse);
-                        window.removeEventListener('message', messageListener);
-                        resolve(event.data.result || event.data || 'Slush detected via postMessage - extension may be blocked');
-                      }
-                    };
-                    
-                    window.addEventListener('message', handleSlushResponse);
-                    
-                    // Essayer plusieurs formats de requête
-                    console.log('🌊 Sending Slush connection requests...');
-                    
-                    // Format 1: Slush spécifique
-                    window.postMessage({
-                      type: 'SLUSH_CONNECT_REQUEST',
-                      origin: window.location.origin,
-                      timestamp: Date.now(),
-                      fromSelf: true
-                    }, '*');
-                    
-                    // Format 2: SUI générique
-                    setTimeout(() => {
-                      window.postMessage({
-                        type: 'SUI_CONNECT_REQUEST',
-                        params: { origin: window.location.origin },
-                        fromSelf: true
-                      }, '*');
-                    }, 1000);
-                    
-                    // Format 3: Standard wallet
-                    setTimeout(() => {
-                      window.postMessage({
-                        type: 'WALLET_CONNECT_REQUEST',
-                        method: 'connect',
-                        params: {},
-                        fromSelf: true
-                      }, '*');
-                    }, 2000);
-                    
-                    // Format 4: Essayer de déclencher manuellement Slush
-                    setTimeout(() => {
-                      // Essayer d'ouvrir directement l'extension Slush
-                      console.log('🌊 Attempting to trigger Slush extension directly...');
-                      
-                      // Méthode 1: Essayer de simuler l'ouverture de l'extension
-                      try {
-                        const slushUrl = 'chrome-extension://opcgpfmipidbgpenhmajoajpbobppdil/popup.html';
-                        window.open(slushUrl, 'slush-popup', 'width=400,height=600');
-                      } catch (e) {
-                        console.log('🌊 Direct extension open failed:', e);
-                      }
-                      
-                      // Méthode 2: Chercher les événements du DOM qui pourraient déclencher Slush
-                      const connectEvents = ['sui-wallet-connect', 'slush-connect', 'wallet-connect'];
-                      connectEvents.forEach(eventName => {
-                        console.log('🌊 Dispatching event:', eventName);
-                        window.dispatchEvent(new CustomEvent(eventName, {
-                          detail: { origin: window.location.origin }
-                        }));
-                        document.dispatchEvent(new CustomEvent(eventName, {
-                          detail: { origin: window.location.origin }
-                        }));
-                      });
-                      
-                      // Méthode 3: Vérifier si window.suiWallet apparaît après quelques secondes
-                      setTimeout(() => {
-                        if (window.suiWallet && !provider.realProvider) {
-                          console.log('🌊 FOUND window.suiWallet after delay!', window.suiWallet);
-                          provider.realProvider = window.suiWallet;
-                        }
-                        if (window.slush && !provider.realProvider) {
-                          console.log('🌊 FOUND window.slush after delay!', window.slush);
-                          provider.realProvider = window.slush;
-                        }
-                      }, 2000);
-                      
-                    }, 3000);
-                  });
-                }
-              };
-              
-              provider = postMessageProvider;
-              isInstalled = true;
-              detectedVia = 'postMessage API (advanced)';
-              console.log('🌊 Using advanced Slush postMessage provider');
-            } catch (e) {
-              console.log('🌊 PostMessage detection failed:', e);
-            }
-          }
-          
-          // Méthode 3: Vérifier les iframes cachés (Slush web app)
-          if (!isInstalled) {
-            const iframes = document.querySelectorAll('iframe');
-            for (const iframe of iframes) {
-              if (iframe.src && (iframe.src.includes('slush') || iframe.src.includes('sui'))) {
-                console.log('🌊 Found potential Slush iframe:', iframe.src);
-                // Créer un provider iframe
-                const iframeProvider = {
-                  connect: async () => {
-                    return 'Slush iframe detected - manual connection required';
-                  }
-                };
-                provider = iframeProvider;
-                isInstalled = true;
-                detectedVia = 'iframe detection';
-                break;
+                return 'Already connected to Phantom SUI';
               }
+            } catch (statusError) {
+              console.log('🔧 Connection status check failed:', statusError);
+            }
+            
+            // Si pas connecté, essayer de se connecter
+            console.log('🔧 Not connected yet, attempting connection...');
+            
+            if (provider.sui.requestAccount) {
+              console.log('🔧 Using provider.sui.requestAccount() - SUI METHOD FOUND!');
+              try {
+                const result = await provider.sui.requestAccount();
+                console.log('🔧 SUI RequestAccount result:', result);
+                return result.accounts?.[0] || result.address || result || 'Connected to Phantom SUI';
+              } catch (requestError) {
+                console.log('🔧 RequestAccount failed:', requestError);
+                
+                // Si l'erreur contient "User rejected", c'est normal
+                if (requestError.message && requestError.message.toLowerCase().includes('rejected')) {
+                  throw new Error('Connection cancelled by user');
+                }
+                
+                // Sinon essayer d'autres méthodes
+                const availableMethods = Object.getOwnPropertyNames(provider.sui)
+                  .filter(method => typeof provider.sui[method] === 'function');
+                
+                console.log('🔧 Available SUI methods to try:', availableMethods);
+                
+                throw new Error(`Connection failed. Please try:
+                
+1. 🔓 Unlock Phantom wallet first
+2. 🌐 Open Phantom extension manually  
+3. ⚙️ Switch to SUI network in Phantom
+4. 🔄 Refresh page and try again
+
+Error: ${requestError.message}`);
+              }
+            } else {
+              throw new Error(`provider.sui exists but no requestAccount method! Available: ${Object.getOwnPropertyNames(provider.sui).join(', ')}`);
             }
           }
           
-          // Méthode 4: Recherche dans le DOM pour les éléments Slush
-          if (!isInstalled) {
-            console.log('🌊 Checking DOM for Slush elements...');
-            const slushSelectors = [
-              '[data-slush]', '[class*="slush"]', '[id*="slush"]',
-              '[data-sui]', '[class*="sui"]', '[id*="sui"]',
-              'button[class*="wallet"]', 'div[class*="wallet"]',
-              '[aria-label*="wallet"]', '[title*="wallet"]'
-            ];
-            
-            let slushElements = [];
-            for (const selector of slushSelectors) {
-              const elements = document.querySelectorAll(selector);
-              slushElements = [...slushElements, ...Array.from(elements)];
-            }
-            
-            if (slushElements.length > 0) {
-              console.log('🌊 Found potential Slush DOM elements:', slushElements);
-              const domProvider = {
-                connect: async () => {
-                  console.log('🌊 Attempting DOM-based Slush connection...');
-                  
-                  // Essayer de cliquer sur chaque élément potentiel
-                  for (const element of slushElements) {
-                    const elementText = element.textContent || element.innerText || '';
-                    const elementClass = element.className || '';
-                    const elementId = element.id || '';
-                    
-                    console.log(`🌊 Checking element: ${elementText} (class: ${elementClass}, id: ${elementId})`);
-                    
-                    // Vérifier si l'élément semble être lié à Slush/SUI
-                    if (elementText.toLowerCase().includes('slush') || 
-                        elementText.toLowerCase().includes('sui') ||
-                        elementClass.toLowerCase().includes('slush') ||
-                        elementClass.toLowerCase().includes('sui') ||
-                        elementId.toLowerCase().includes('slush') ||
-                        elementId.toLowerCase().includes('sui')) {
-                      
-                      console.log('🌊 Found potential Slush element, clicking:', element);
-                      
-                      // Essayer différentes façons de déclencher l'élément
-                      if (element.click) {
-                        element.click();
-                      }
-                      if (element.dispatchEvent) {
-                        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                      }
-                      
-                      // Attendre un peu pour voir si ça déclenche quelque chose
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
-                  }
-                  
-                  return 'Slush DOM elements triggered - check if wallet popup appeared';
-                }
-              };
-              provider = domProvider;
-              isInstalled = true;
-              detectedVia = `DOM elements (${slushElements.length} found)`;
-            } else {
-              console.log('🌊 No Slush DOM elements found');
-            }
-          }
+          throw new Error(`provider.sui not found! Available providers: ${Object.getOwnPropertyNames(provider).join(', ')}`);
+        } catch (error) {
+          console.error('🔧 Phantom SUI connection error:', error);
+          throw new Error(`Phantom SUI connection failed: ${error.message}`);
         }
+      }
+    };
 
-        // Recherche spéciale pour Phantom (peut être dans window.ethereum si multichain)
-        if (!isInstalled && config.id === 'phantom') {
-          if (window.ethereum && window.ethereum.isPhantom) {
-            provider = window.ethereum;
-            isInstalled = true;
-            detectedVia = 'ethereum.isPhantom';
-            console.log('👻 Found Phantom via window.ethereum.isPhantom');
-          }
-          // Aussi chercher window.phantom directement
-          if (!isInstalled && window.phantom) {
-            provider = window.phantom;
-            isInstalled = true;
-            detectedVia = 'window.phantom';
-            console.log('👻 Found Phantom via window.phantom');
-          }
+    // Fonction pour détecter Phantom
+    function detectPhantom() {
+      let provider = null;
+      let isInstalled = false;
+      let detectedVia = null;
+
+      // Essayer les détecteurs configurés
+      for (const detector of PHANTOM_CONFIG.detectors) {
+        if (window[detector]) {
+          provider = window[detector];
+          isInstalled = true;
+          detectedVia = detector;
+          break;
         }
-
-        detectedWallets.push({
-          ...config,
-          provider,
-          isInstalled,
-          detectedVia
-        });
       }
 
-      return detectedWallets;
+      // Recherche dans window.ethereum si multichain
+      if (!isInstalled && window.ethereum && window.ethereum.isPhantom) {
+        provider = window.ethereum;
+        isInstalled = true;
+        detectedVia = 'ethereum.isPhantom';
+        console.log('👻 Found Phantom via window.ethereum.isPhantom');
+      }
+
+      // Recherche directe window.phantom
+      if (!isInstalled && window.phantom) {
+        provider = window.phantom;
+        isInstalled = true;
+        detectedVia = 'window.phantom';
+        console.log('👻 Found Phantom via window.phantom');
+      }
+
+      return {
+        ...PHANTOM_CONFIG,
+        provider,
+        isInstalled,
+        detectedVia
+      };
     }
 
     // Fonction pour afficher le statut
@@ -928,82 +291,33 @@ Our code successfully detected Slush via postMessage but the extension cannot re
       statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
     }
 
-    // Fonction pour ouvrir le modal
-    function openWalletModal() {
-      const modal = document.getElementById('walletModal');
-      const walletList = document.getElementById('walletList');
+    // Fonction pour se connecter à Phantom
+    async function connectPhantom() {
+      const connectBtn = document.getElementById('connectBtn');
       
-      // Détecter les wallets
-      const wallets = detectWallets();
-      
-      // Vider la liste
-      walletList.innerHTML = '';
-      
-      // Séparer les wallets installés et non installés
-      const installedWallets = wallets.filter(w => w.isInstalled);
-      const notInstalledWallets = wallets.filter(w => !w.isInstalled);
-      
-      if (installedWallets.length === 0) {
-        // Aucun wallet installé
-        walletList.innerHTML = `
-          <div class="no-wallets">
-            <div class="no-wallets-icon">😢</div>
-            <h3>No SUI wallets detected</h3>
-            <p>Please install a SUI wallet to continue:</p>
-            <div class="install-links">
-              ${WALLET_CONFIGS.map(wallet => 
-                `<a href="${wallet.installUrl}" target="_blank" class="install-link">
-                  ${wallet.icon} Install ${wallet.name}
-                </a>`
-              ).join('')}
-            </div>
-          </div>
-        `;
-      } else {
-        // Afficher les wallets installés en premier
-        [...installedWallets, ...notInstalledWallets].forEach(wallet => {
-          const walletItem = document.createElement('div');
-          walletItem.className = `wallet-item ${!wallet.isInstalled ? 'not-available' : ''}`;
-          
-          walletItem.innerHTML = `
-            <div class="wallet-icon">${wallet.icon}</div>
-            <div class="wallet-info">
-              <div class="wallet-name">${wallet.name}</div>
-              <div class="wallet-status ${wallet.isInstalled ? 'installed' : 'not-installed'}">
-                ${wallet.isInstalled ? `✅ Found via: ${wallet.detectedVia}` : '❌ Not installed'}
-              </div>
-            </div>
-          `;
-
-          if (wallet.isInstalled) {
-            walletItem.onclick = () => connectToWallet(wallet);
-          } else {
-            walletItem.onclick = () => window.open(wallet.installUrl, '_blank');
-          }
-
-          walletList.appendChild(walletItem);
-        });
-      }
-      
-      modal.classList.add('show');
-    }
-
-    // Fonction pour fermer le modal
-    function closeWalletModal() {
-      const modal = document.getElementById('walletModal');
-      modal.classList.remove('show');
-    }
-
-    // Fonction pour se connecter à un wallet
-    async function connectToWallet(wallet) {
       try {
-        showStatus('🔄 Connecting to ' + wallet.name + '...', 'info');
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connecting...';
+        showStatus('🔄 Connecting to Phantom...', 'info');
         
-        if (!wallet.provider) {
-          throw new Error('Wallet provider not found');
+        const phantom = detectPhantom();
+        
+        if (!phantom.isInstalled) {
+          showStatus(`
+            ❌ Phantom wallet not detected!
+            <br><br>
+            <a href="${PHANTOM_CONFIG.installUrl}" target="_blank" class="install-link">
+              👻 Install Phantom Wallet
+            </a>
+          `, 'error');
+          return;
         }
 
-        const address = await wallet.connectMethod(wallet.provider);
+        if (!phantom.provider) {
+          throw new Error('Phantom provider not found');
+        }
+
+        const address = await phantom.connectMethod(phantom.provider);
         
         // Formater l'adresse proprement
         let displayAddress = address;
@@ -1012,47 +326,38 @@ Our code successfully detected Slush via postMessage but the extension cannot re
         }
         
         showStatus(`
-          🎉 Successfully connected to ${wallet.name}!
+          🎉 Successfully connected to Phantom!
+          <br>Detected via: ${phantom.detectedVia}
           <div class="address-display">${displayAddress}</div>
         `, 'success');
         
-        closeWalletModal();
+        connectBtn.textContent = '✅ Connected';
         
       } catch (error) {
         console.error('Connection error:', error);
-        
-        // Message d'erreur formaté spécialement pour Slush
-        if (wallet.name.includes('Slush') && error.message.includes('🌊')) {
-          showStatus(error.message, 'error');
-        } else {
-          showStatus(`❌ Failed to connect to ${wallet.name}: ${error.message}`, 'error');
-        }
+        showStatus(`❌ Failed to connect to Phantom: ${error.message}`, 'error');
+        connectBtn.textContent = 'Connect Phantom Wallet';
+      } finally {
+        connectBtn.disabled = false;
       }
     }
 
-    // Fermer le modal en cliquant à l'extérieur
-    document.getElementById('walletModal').onclick = function(e) {
-      if (e.target === this) {
-        closeWalletModal();
-      }
-    };
-
-    // Fermer avec Escape
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        closeWalletModal();
-      }
-    });
-
-    // Message initial
+    // Vérification initiale
     setTimeout(() => {
-      const detectedCount = detectWallets().filter(w => w.isInstalled).length;
-      if (detectedCount > 0) {
-        showStatus(`🎯 ${detectedCount} wallet(s) detected! Click "Choose Wallet" to connect.`, 'success');
+      const phantom = detectPhantom();
+      if (phantom.isInstalled) {
+        showStatus(`🎯 Phantom detected via: ${phantom.detectedVia}`, 'success');
       } else {
-        showStatus('💡 No SUI wallets detected. Click "Choose Wallet" to see installation options.', 'info');
+        showStatus(`💡 Phantom not detected. Please install Phantom wallet first.`, 'info');
       }
     }, 1000);
+
+    // Raccourci clavier Enter pour se connecter
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        connectPhantom();
+      }
+    });
   </script>
 </body>
 </html>
