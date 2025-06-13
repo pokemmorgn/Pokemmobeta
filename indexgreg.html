@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Phantom SUI Wallet</title>
+  <title>Phantom Wallet Connector</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,985 +11,334 @@
     }
 
     body { 
-      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
       color: #fff; 
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow-x: hidden;
     }
 
     .container {
-      max-width: 600px;
+      max-width: 500px;
       width: 100%;
       padding: 20px;
     }
 
-    .wallet-card {
-      background: rgba(26, 26, 46, 0.9);
+    .main-card {
+      background: rgba(30, 41, 59, 0.8);
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(171, 154, 255, 0.3);
-      border-radius: 24px;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 20px;
       padding: 40px;
       text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .wallet-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(171, 154, 255, 0.8), transparent);
-    }
-
-    .phantom-logo {
-      font-size: 4rem;
-      margin-bottom: 20px;
-      display: block;
-      filter: drop-shadow(0 0 20px rgba(171, 154, 255, 0.5));
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
     h1 {
-      font-size: 2.5rem;
+      font-size: 2rem;
       font-weight: 700;
-      background: linear-gradient(135deg, #ab9aff, #6c5ce7, #a29bfe);
+      background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 10px;
     }
 
     .subtitle {
-      color: #b2b2d9;
-      margin-bottom: 40px;
-      font-size: 1.2rem;
-      line-height: 1.5;
-    }
-
-    .connect-section {
+      color: #94a3b8;
       margin-bottom: 30px;
+      font-size: 1.1rem;
     }
 
     .connect-btn {
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
       border: none;
-      border-radius: 16px;
+      border-radius: 12px;
       color: white;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       font-weight: 600;
-      padding: 20px 40px;
+      padding: 16px 32px;
       cursor: pointer;
       transition: all 0.3s ease;
       width: 100%;
       margin-bottom: 20px;
-      position: relative;
-      overflow: hidden;
     }
 
     .connect-btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 20px 40px -10px rgba(108, 92, 231, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.4);
     }
 
     .connect-btn:active {
-      transform: translateY(-1px);
+      transform: translateY(0);
     }
 
     .connect-btn:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
       transform: none;
     }
 
     .status {
       margin-top: 20px;
-      padding: 20px;
-      border-radius: 16px;
+      padding: 15px;
+      border-radius: 12px;
       font-weight: 500;
-      text-align: left;
     }
 
     .status.success {
-      background: rgba(46, 204, 113, 0.2);
-      border: 1px solid rgba(46, 204, 113, 0.4);
-      color: #58d68d;
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #4ade80;
     }
 
     .status.error {
-      background: rgba(231, 76, 60, 0.2);
-      border: 1px solid rgba(231, 76, 60, 0.4);
-      color: #ec7063;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
     }
 
     .status.info {
-      background: rgba(52, 152, 219, 0.2);
-      border: 1px solid rgba(52, 152, 219, 0.4);
-      color: #5dade2;
-    }
-
-    .wallet-info {
-      display: none;
-      margin-top: 30px;
-      padding: 25px;
-      background: rgba(22, 33, 62, 0.8);
-      border-radius: 16px;
-      border: 1px solid rgba(171, 154, 255, 0.2);
-    }
-
-    .wallet-info.show {
-      display: block;
-      animation: slideIn 0.5s ease;
-    }
-
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(171, 154, 255, 0.1);
-    }
-
-    .info-row:last-child {
-      border-bottom: none;
-      margin-bottom: 0;
-    }
-
-    .info-label {
-      color: #b2b2d9;
-      font-weight: 500;
-    }
-
-    .info-value {
-      color: #fff;
-      font-family: 'Monaco', monospace;
-      font-size: 0.9rem;
-      word-break: break-all;
-      text-align: right;
-      max-width: 60%;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
     }
 
     .address-display {
-      background: rgba(171, 154, 255, 0.1);
-      padding: 15px;
-      border-radius: 12px;
+      margin-top: 15px;
+      padding: 12px;
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 8px;
       font-family: 'Monaco', monospace;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       word-break: break-all;
-      color: #ab9aff;
-      border: 1px solid rgba(171, 154, 255, 0.3);
+      color: #a5f3fc;
     }
 
-    .action-buttons {
-      display: none;
-      gap: 15px;
-      margin-top: 25px;
-    }
-
-    .action-buttons.show {
-      display: flex;
-      animation: slideIn 0.5s ease 0.2s both;
-    }
-
-    .action-btn {
-      flex: 1;
-      background: rgba(171, 154, 255, 0.2);
-      border: 1px solid rgba(171, 154, 255, 0.4);
-      border-radius: 12px;
-      color: #ab9aff;
-      font-size: 1rem;
-      font-weight: 500;
-      padding: 15px 20px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .action-btn:hover {
-      background: rgba(171, 154, 255, 0.3);
-      border-color: rgba(171, 154, 255, 0.6);
-      transform: translateY(-2px);
-    }
-
-    .action-btn.disconnect {
-      background: rgba(231, 76, 60, 0.2);
-      border-color: rgba(231, 76, 60, 0.4);
-      color: #ec7063;
-    }
-
-    .action-btn.disconnect:hover {
-      background: rgba(231, 76, 60, 0.3);
-      border-color: rgba(231, 76, 60, 0.6);
-    }
-
-    .installation-guide {
-      display: none;
-      margin-top: 30px;
-      padding: 25px;
-      background: rgba(255, 193, 7, 0.1);
-      border: 1px solid rgba(255, 193, 7, 0.3);
-      border-radius: 16px;
-      color: #ffc107;
-      text-align: left;
-    }
-
-    .installation-guide.show {
-      display: block;
-      animation: slideIn 0.5s ease;
+    .phantom-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
     }
 
     .install-link {
       display: inline-block;
-      margin-top: 15px;
       padding: 12px 24px;
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-      border-radius: 10px;
-      color: white;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 8px;
+      color: #a5b4fc;
       text-decoration: none;
-      font-weight: 600;
-      transition: transform 0.3s ease;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      margin-top: 15px;
     }
 
     .install-link:hover {
-      transform: translateY(-2px);
-    }
-
-    .network-badge {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(46, 204, 113, 0.2);
-      border: 1px solid rgba(46, 204, 113, 0.4);
-      border-radius: 20px;
-      padding: 8px 16px;
-      font-size: 0.8rem;
-      color: #58d68d;
-      font-weight: 600;
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .loading {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .copy-btn {
-      background: none;
-      border: none;
-      color: #ab9aff;
-      cursor: pointer;
-      padding: 5px;
-      border-radius: 6px;
-      transition: background 0.2s ease;
-    }
-
-    .copy-btn:hover {
-      background: rgba(171, 154, 255, 0.2);
+      background: rgba(99, 102, 241, 0.3);
+      color: #c7d2fe;
+      transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="wallet-card">
-      <div class="network-badge">SUI Network</div>
+    <!-- Version Badge -->
+    <div style="position: fixed; top: 10px; right: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a5b4fc; z-index: 9999;">
+      v4.0.0 - Phantom Only
+    </div>
+    
+    <div class="main-card">
+      <div class="phantom-icon">👻</div>
+      <h1>Connect Phantom</h1>
+      <p class="subtitle">Connect your Phantom wallet for SUI blockchain</p>
       
-      <!-- Version Badge -->
-      <div style="position: absolute; top: 10px; left: 10px; background: rgba(108, 92, 231, 0.2); border: 1px solid rgba(108, 92, 231, 0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #a29bfe; z-index: 9999;">
-        v4.1.0 - Wait for Injection
-      </div>
-      
-      <div class="phantom-logo">👻</div>
-      <h1>Phantom Wallet</h1>
-      <p class="subtitle">Connect your Phantom wallet to access SUI blockchain features</p>
-      
-      <div class="connect-section">
-        <button class="connect-btn" id="connectBtn" onclick="handleConnection()">
-          <span id="btnText">Connect Phantom Wallet</span>
-        </button>
-      </div>
+      <button class="connect-btn" id="connectBtn" onclick="connectPhantom()">
+        Connect Phantom Wallet
+      </button>
       
       <div id="status"></div>
-      
-      <!-- Wallet Info Panel -->
-      <div class="wallet-info" id="walletInfo">
-        <div class="info-row">
-          <span class="info-label">Connected Wallet:</span>
-          <span class="info-value">Phantom</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Network:</span>
-          <span class="info-value">SUI Mainnet</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Address:</span>
-          <div class="info-value">
-            <span id="walletAddress"></span>
-            <button class="copy-btn" onclick="copyAddress()" title="Copy address">📋</button>
-          </div>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Balance:</span>
-          <span class="info-value" id="walletBalance">Loading...</span>
-        </div>
-      </div>
-      
-      <!-- Action Buttons -->
-      <div class="action-buttons" id="actionButtons">
-        <button class="action-btn" onclick="getBalance()">Refresh Balance</button>
-        <button class="action-btn" onclick="getAccountInfo()">Account Info</button>
-        <button class="action-btn disconnect" onclick="disconnect()">Disconnect</button>
-      </div>
-      
-      <!-- Installation Guide -->
-      <div class="installation-guide" id="installationGuide">
-        <h3>⚠️ Phantom Wallet Not Detected</h3>
-        <p>Please install Phantom wallet to continue:</p>
-        <ol style="margin: 15px 0; padding-left: 20px;">
-          <li>Install Phantom browser extension</li>
-          <li>Create or import your wallet</li>
-          <li>Refresh this page</li>
-        </ol>
-        <a href="https://phantom.app/" target="_blank" class="install-link">
-          👻 Install Phantom Wallet
-        </a>
-      </div>
     </div>
   </div>
 
   <script>
-    let currentWallet = null;
-    let currentAddress = null;
-
-    // Attendre que Phantom injecte ses APIs
-    async function waitForPhantom(maxWait = 10000) {
-      return new Promise((resolve) => {
-        const startTime = Date.now();
-        
-        const checkPhantom = () => {
-          const elapsed = Date.now() - startTime;
+    // Configuration Phantom uniquement
+    const PHANTOM_CONFIG = {
+      id: 'phantom',
+      name: 'Phantom',
+      icon: '👻',
+      description: 'Multi-chain wallet with SUI support',
+      installUrl: 'https://phantom.app/',
+      detectors: ['phantom'],
+      connectMethod: async (provider) => {
+        try {
+          console.log('🔧 Attempting Phantom connection with provider:', provider);
+          console.log('🔧 Provider methods:', Object.getOwnPropertyNames(provider));
           
-          // Vérifier si Phantom est complètement chargé
-          if (window.phantom && 
-              (window.phantom.sui || window.phantom.solana) &&
-              Object.keys(window.phantom).length > 0) {
-            console.log(`✅ Phantom loaded after ${elapsed}ms`);
-            resolve(true);
-            return;
+          // Méthode 1: SUI spécifique (on l'a trouvé dans les logs !)
+          if (provider.sui && provider.sui.connect) {
+            console.log('🔧 Trying provider.sui.connect()');
+            const result = await provider.sui.connect();
+            console.log('🔧 SUI Connect result:', result);
+            return result.accounts?.[0] || result.address || JSON.stringify(result);
           }
           
-          if (elapsed >= maxWait) {
-            console.log(`⏰ Timeout waiting for Phantom after ${elapsed}ms`);
-            resolve(false);
-            return;
+          // Méthode 2: Connection Solana standard
+          if (provider.connect) {
+            console.log('🔧 Trying standard connect()');
+            const result = await provider.connect({ onlyIfTrusted: false });
+            console.log('🔧 Connect result:', result);
+            return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
           }
           
-          // Réessayer dans 100ms
-          setTimeout(checkPhantom, 100);
-        };
-        
-        checkPhantom();
-      });
-    }
-
-    // Vérifier si Phantom est installé (version améliorée)
-    async function isPhantomInstalled() {
-      // Vérification immédiate
-      if (window.phantom && Object.keys(window.phantom).length > 0) {
-        return true;
+          // Méthode 3: Solana spécifique
+          if (provider.solana && provider.solana.connect) {
+            console.log('🔧 Trying provider.solana.connect()');
+            const result = await provider.solana.connect({ onlyIfTrusted: false });
+            console.log('🔧 Solana Connect result:', result);
+            return result.publicKey?.toString() || result.accounts?.[0] || JSON.stringify(result);
+          }
+          
+          // Méthode 4: Request method
+          if (provider.request) {
+            console.log('🔧 Trying request method');
+            try {
+              const accounts = await provider.request({ method: 'connect' });
+              return accounts?.[0] || JSON.stringify(accounts);
+            } catch (reqError) {
+              console.log('🔧 Request failed, trying eth_requestAccounts');
+              const accounts = await provider.request({ method: 'eth_requestAccounts' });
+              return accounts?.[0] || JSON.stringify(accounts);
+            }
+          }
+          
+          // Méthode 5: Enable method
+          if (provider.enable) {
+            console.log('🔧 Trying enable()');
+            const result = await provider.enable();
+            return result?.[0] || JSON.stringify(result);
+          }
+          
+          throw new Error(`No connection method worked. Available methods: ${Object.getOwnPropertyNames(provider).join(', ')}`);
+        } catch (error) {
+          console.error('🔧 Phantom connection error:', error);
+          throw new Error(`Phantom connection failed: ${error.message}`);
+        }
       }
-      
-      // Attendre que Phantom charge
-      console.log('🔄 Waiting for Phantom to load...');
-      const loaded = await waitForPhantom();
-      return loaded;
+    };
+
+    // Fonction pour détecter Phantom
+    function detectPhantom() {
+      let provider = null;
+      let isInstalled = false;
+      let detectedVia = null;
+
+      // Essayer les détecteurs configurés
+      for (const detector of PHANTOM_CONFIG.detectors) {
+        if (window[detector]) {
+          provider = window[detector];
+          isInstalled = true;
+          detectedVia = detector;
+          break;
+        }
+      }
+
+      // Recherche dans window.ethereum si multichain
+      if (!isInstalled && window.ethereum && window.ethereum.isPhantom) {
+        provider = window.ethereum;
+        isInstalled = true;
+        detectedVia = 'ethereum.isPhantom';
+        console.log('👻 Found Phantom via window.ethereum.isPhantom');
+      }
+
+      // Recherche directe window.phantom
+      if (!isInstalled && window.phantom) {
+        provider = window.phantom;
+        isInstalled = true;
+        detectedVia = 'window.phantom';
+        console.log('👻 Found Phantom via window.phantom');
+      }
+
+      return {
+        ...PHANTOM_CONFIG,
+        provider,
+        isInstalled,
+        detectedVia
+      };
     }
 
-    // Afficher le statut
+    // Fonction pour afficher le statut
     function showStatus(message, type = 'info') {
       const statusDiv = document.getElementById('status');
       statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
     }
 
-    // Mettre à jour l'interface utilisateur
-    function updateUI(connected = false) {
+    // Fonction pour se connecter à Phantom
+    async function connectPhantom() {
       const connectBtn = document.getElementById('connectBtn');
-      const btnText = document.getElementById('btnText');
-      const walletInfo = document.getElementById('walletInfo');
-      const actionButtons = document.getElementById('actionButtons');
-      const installationGuide = document.getElementById('installationGuide');
-
-      if (!isPhantomInstalled()) {
-        installationGuide.classList.add('show');
-        connectBtn.style.display = 'none';
-        return;
-      }
-
-      if (connected) {
-        btnText.textContent = 'Connected ✓';
-        connectBtn.disabled = true;
-        walletInfo.classList.add('show');
-        actionButtons.classList.add('show');
-      } else {
-        btnText.textContent = 'Connect Phantom Wallet';
-        connectBtn.disabled = false;
-        walletInfo.classList.remove('show');
-        actionButtons.classList.remove('show');
-      }
-    }
-
-    // Debug: Analyser les objets Phantom disponibles
-    function debugPhantomAPIs() {
-      console.log('🔍 === PHANTOM DEBUG ANALYSIS ===');
       
-      if (window.phantom) {
-        console.log('✅ window.phantom exists:', window.phantom);
-        console.log('🔍 phantom keys:', Object.keys(window.phantom));
-        
-        // Analyser chaque sous-objet
-        Object.keys(window.phantom).forEach(key => {
-          const obj = window.phantom[key];
-          if (obj && typeof obj === 'object') {
-            console.log(`🔍 phantom.${key}:`, {
-              exists: true,
-              type: typeof obj,
-              keys: Object.keys(obj),
-              methods: Object.getOwnPropertyNames(obj).filter(prop => typeof obj[prop] === 'function'),
-              hasConnect: !!obj.connect,
-              hasRequest: !!obj.request,
-              hasEnable: !!obj.enable,
-              stringified: obj.toString().substring(0, 200)
-            });
-          }
-        });
-        
-        // Tests spécifiques
-        if (window.phantom.sui) {
-          console.log('🌊 SUI API detailed analysis:', {
-            connect: typeof window.phantom.sui.connect,
-            request: typeof window.phantom.sui.request,
-            requestPermissions: typeof window.phantom.sui.requestPermissions,
-            getAccounts: typeof window.phantom.sui.getAccounts,
-            allMethods: Object.getOwnPropertyNames(window.phantom.sui)
-          });
-        }
-        
-        if (window.phantom.solana) {
-          console.log('🔶 Solana API detailed analysis:', {
-            connect: typeof window.phantom.solana.connect,
-            request: typeof window.phantom.solana.request,
-            isConnected: window.phantom.solana.isConnected,
-            publicKey: window.phantom.solana.publicKey,
-            allMethods: Object.getOwnPropertyNames(window.phantom.solana)
-          });
-        }
-      } else {
-        console.log('❌ window.phantom does not exist');
-      }
-      
-      console.log('🔍 === END PHANTOM DEBUG ===');
-    }
-
-    // Se connecter au wallet
-    async function connectWallet() {
       try {
-        // Attendre que Phantom soit complètement chargé
-        const phantomAvailable = await isPhantomInstalled();
-        
-        if (!phantomAvailable) {
-          throw new Error('Phantom wallet is not installed or failed to load');
-        }
-
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connecting...';
         showStatus('🔄 Connecting to Phantom...', 'info');
         
-        // Debug complet APRÈS que Phantom soit chargé
-        debugPhantomAPIs();
+        const phantom = detectPhantom();
         
-        // Stratégie 1: Essayer toutes les méthodes SUI possibles
-        if (window.phantom.sui) {
-          console.log('🌊 Attempting SUI connection with multiple methods...');
-          const suiProvider = window.phantom.sui;
-          
-          // Méthode A: Standard connect
-          if (typeof suiProvider.connect === 'function') {
-            try {
-              console.log('🔧 Trying direct connect()');
-              const result = await suiProvider.connect();
-              console.log('🔧 Direct connect result:', result);
-              
-              if (result && (result.accounts || result.account || result.address)) {
-                currentWallet = suiProvider;
-                currentAddress = result.accounts?.[0] || result.account || result.address;
-                
-                document.getElementById('walletAddress').textContent = 
-                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-                
-                showStatus('🎉 Successfully connected via SUI direct connect!', 'success');
-                updateUI(true);
-                await getBalance();
-                return true;
-              }
-            } catch (directError) {
-              console.log('🔧 Direct connect failed:', directError);
-            }
-          }
-          
-          // Méthode B: Request method
-          if (typeof suiProvider.request === 'function') {
-            try {
-              console.log('🔧 Trying request method for SUI');
-              const accounts = await suiProvider.request({
-                method: 'sui_requestAccounts'
-              });
-              console.log('🔧 Request result:', accounts);
-              
-              if (accounts && accounts.length > 0) {
-                currentWallet = suiProvider;
-                currentAddress = accounts[0];
-                
-                document.getElementById('walletAddress').textContent = 
-                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-                
-                showStatus('🎉 Successfully connected via SUI request!', 'success');
-                updateUI(true);
-                await getBalance();
-                return true;
-              }
-            } catch (requestError) {
-              console.log('🔧 SUI request failed:', requestError);
-            }
-          }
-          
-          // Méthode C: getAccounts direct (si déjà connecté)
-          if (typeof suiProvider.getAccounts === 'function') {
-            try {
-              console.log('🔧 Trying getAccounts() for SUI');
-              const accounts = await suiProvider.getAccounts();
-              console.log('🔧 getAccounts result:', accounts);
-              
-              if (accounts && accounts.length > 0) {
-                currentWallet = suiProvider;
-                currentAddress = accounts[0];
-                
-                document.getElementById('walletAddress').textContent = 
-                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-                
-                showStatus('🎉 Successfully connected via SUI getAccounts!', 'success');
-                updateUI(true);
-                await getBalance();
-                return true;
-              }
-            } catch (getAccountsError) {
-              console.log('🔧 SUI getAccounts failed:', getAccountsError);
-            }
-          }
+        if (!phantom.isInstalled) {
+          showStatus(`
+            ❌ Phantom wallet not detected!
+            <br><br>
+            <a href="${PHANTOM_CONFIG.installUrl}" target="_blank" class="install-link">
+              👻 Install Phantom Wallet
+            </a>
+          `, 'error');
+          return;
         }
-        
-        // Stratégie 2: Essayer Solana avec plus de patience
-        if (window.phantom.solana) {
-          console.log('🔶 Attempting Solana connection...');
-          const solanaProvider = window.phantom.solana;
-          
-          try {
-            // Vérifier si déjà connecté
-            if (solanaProvider.isConnected && solanaProvider.publicKey) {
-              console.log('🔧 Already connected to Solana');
-              currentWallet = solanaProvider;
-              currentAddress = solanaProvider.publicKey.toString();
-              
-              document.getElementById('walletAddress').textContent = 
-                `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-              
-              showStatus('🎉 Already connected to Phantom Solana!', 'success');
-              updateUI(true);
-              await getBalance();
-              return true;
-            }
-            
-            // Nouvelle connexion avec retry
-            console.log('🔧 Attempting new Solana connection');
-            
-            // Essayer avec différents paramètres
-            let response;
-            try {
-              response = await solanaProvider.connect({ onlyIfTrusted: false });
-            } catch (firstTry) {
-              console.log('🔧 First Solana attempt failed, trying without params:', firstTry);
-              response = await solanaProvider.connect();
-            }
-            
-            console.log('🔧 Solana connect response:', response);
-            
-            if (response && response.publicKey) {
-              currentWallet = solanaProvider;
-              currentAddress = response.publicKey.toString();
-              
-              document.getElementById('walletAddress').textContent = 
-                `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-              
-              showStatus('🎉 Connected to Phantom! (Using Solana API for demonstration)', 'success');
-              updateUI(true);
-              await getBalance();
-              return true;
-            }
-          } catch (solanaError) {
-            console.log('🔧 Solana connection failed:', solanaError);
-          }
-        }
-        
-        // Stratégie 3: Forcer l'ouverture de Phantom
-        console.log('🔧 Trying to manually trigger Phantom popup...');
-        try {
-          // Déclencher manuellement l'événement de connexion
-          window.dispatchEvent(new CustomEvent('phantom-connect'));
-          
-          // Attendre un peu pour voir si Phantom répond
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Réessayer la détection
-          if (window.phantom.solana && window.phantom.solana.publicKey) {
-            currentWallet = window.phantom.solana;
-            currentAddress = window.phantom.solana.publicKey.toString();
-            
-            document.getElementById('walletAddress').textContent = 
-              `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-            
-            showStatus('🎉 Connected after manual trigger!', 'success');
-            updateUI(true);
-            await getBalance();
-            return true;
-          }
-        } catch (manualError) {
-          console.log('🔧 Manual trigger failed:', manualError);
-        }
-        
-        // Si tout échoue, donner des instructions détaillées
-        throw new Error(`All connection methods failed. 
-        
-Available APIs after wait:
-- SUI: ${!!window.phantom.sui} (methods: ${window.phantom.sui ? Object.getOwnPropertyNames(window.phantom.sui).join(', ') : 'none'})
-- Solana: ${!!window.phantom.solana} (methods: ${window.phantom.solana ? Object.getOwnPropertyNames(window.phantom.solana).join(', ') : 'none'})
 
-Try:
-1. Refresh the page
-2. Make sure Phantom is unlocked
-3. Check Phantom settings for dApp permissions`);
+        if (!phantom.provider) {
+          throw new Error('Phantom provider not found');
+        }
+
+        const address = await phantom.connectMethod(phantom.provider);
+        
+        // Formater l'adresse proprement
+        let displayAddress = address;
+        if (typeof address === 'object' && address !== null) {
+          displayAddress = JSON.stringify(address, null, 2);
+        }
+        
+        showStatus(`
+          🎉 Successfully connected to Phantom!
+          <br>Detected via: ${phantom.detectedVia}
+          <div class="address-display">${displayAddress}</div>
+        `, 'success');
+        
+        connectBtn.textContent = '✅ Connected';
         
       } catch (error) {
         console.error('Connection error:', error);
-        
-        let errorMessage = 'Failed to connect to Phantom';
-        if (error.message.includes('User rejected')) {
-          errorMessage = 'Connection cancelled by user';
-        } else if (error.message.includes('not installed')) {
-          errorMessage = 'Phantom wallet is not installed';
-        } else if (error.message.includes('All connection methods failed')) {
-          errorMessage = error.message;
-        } else {
-          errorMessage = `${error.message}. Check console for debug info.`;
-        }
-        
-        showStatus(`❌ ${errorMessage}`, 'error');
-        updateUI(false);
-        return false;
-      }
-    }
-
-    // Se déconnecter
-    async function disconnect() {
-      try {
-        if (currentWallet && currentWallet.disconnect) {
-          await currentWallet.disconnect();
-        }
-        
-        currentWallet = null;
-        currentAddress = null;
-        
-        showStatus('👋 Disconnected from Phantom', 'info');
-        updateUI(false);
-        
-      } catch (error) {
-        console.error('Disconnect error:', error);
-        // Force la déconnexion même en cas d'erreur
-        currentWallet = null;
-        currentAddress = null;
-        updateUI(false);
-        showStatus('👋 Disconnected from Phantom', 'info');
-      }
-    }
-
-    // Récupérer le solde
-    async function getBalance() {
-      if (!currentWallet || !currentAddress) {
-        showStatus('❌ No wallet connected', 'error');
-        return;
-      }
-
-      try {
-        document.getElementById('walletBalance').textContent = 'Loading...';
-        
-        // Vérifier si on utilise l'API SUI
-        if (currentWallet.getBalance && window.phantom.sui) {
-          try {
-            const balanceResponse = await currentWallet.getBalance({
-              owner: currentAddress,
-            });
-            
-            if (balanceResponse && balanceResponse.totalBalance) {
-              // Convertir de MIST en SUI (1 SUI = 1,000,000,000 MIST)
-              const suiBalance = (parseInt(balanceResponse.totalBalance) / 1000000000).toFixed(4);
-              document.getElementById('walletBalance').textContent = `${suiBalance} SUI`;
-            } else {
-              document.getElementById('walletBalance').textContent = '0.0000 SUI';
-            }
-            return;
-          } catch (suiError) {
-            console.log('🔧 SUI balance API failed:', suiError);
-          }
-        }
-        
-        // Fallback: utiliser une API publique SUI
-        try {
-          const response = await fetch('https://fullnode.mainnet.sui.io:443', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'suix_getBalance',
-              params: [currentAddress]
-            })
-          });
-          
-          const data = await response.json();
-          
-          if (data.result && data.result.totalBalance) {
-            const suiBalance = (parseInt(data.result.totalBalance) / 1000000000).toFixed(4);
-            document.getElementById('walletBalance').textContent = `${suiBalance} SUI`;
-          } else {
-            document.getElementById('walletBalance').textContent = '0.0000 SUI';
-          }
-        } catch (apiError) {
-          console.log('🔧 Public API also failed:', apiError);
-          document.getElementById('walletBalance').textContent = 'N/A (Solana mode)';
-        }
-        
-      } catch (error) {
-        console.error('Balance error:', error);
-        document.getElementById('walletBalance').textContent = 'Error loading balance';
-        showStatus(`❌ Failed to get balance: ${error.message}`, 'error');
-      }
-    }
-
-    // Récupérer les informations du compte
-    async function getAccountInfo() {
-      if (!currentWallet || !currentAddress) {
-        showStatus('❌ No wallet connected', 'error');
-        return;
-      }
-
-      try {
-        showStatus('🔄 Getting account information...', 'info');
-        
-        // Vérifier si on utilise l'API SUI
-        if (currentWallet.getOwnedObjects && window.phantom.sui) {
-          try {
-            const ownedObjects = await currentWallet.getOwnedObjects({
-              owner: currentAddress,
-              options: {
-                showType: true,
-                showContent: true,
-              },
-            });
-
-            const objectCount = ownedObjects?.data?.length || 0;
-            showStatus(`📊 Account Info: ${objectCount} objects owned on SUI`, 'success');
-            return;
-          } catch (suiError) {
-            console.log('🔧 SUI account info failed:', suiError);
-          }
-        }
-        
-        // Fallback: utiliser l'API publique SUI
-        try {
-          const response = await fetch('https://fullnode.mainnet.sui.io:443', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'suix_getOwnedObjects',
-              params: [currentAddress, { showType: true, showContent: false }, null, null]
-            })
-          });
-          
-          const data = await response.json();
-          
-          if (data.result && data.result.data) {
-            const objectCount = data.result.data.length;
-            showStatus(`📊 Account Info: ${objectCount} objects owned on SUI`, 'success');
-          } else {
-            showStatus(`📊 Account Info: Connected address ${currentAddress.slice(0, 8)}...`, 'success');
-          }
-        } catch (apiError) {
-          console.log('🔧 Public API account info failed:', apiError);
-          showStatus(`📊 Account Info: Connected to ${currentAddress.slice(0, 8)}...`, 'success');
-        }
-        
-      } catch (error) {
-        console.error('Account info error:', error);
-        showStatus(`❌ Failed to get account info: ${error.message}`, 'error');
-      }
-    }
-
-    // Copier l'adresse
-    function copyAddress() {
-      if (currentAddress) {
-        navigator.clipboard.writeText(currentAddress).then(() => {
-          showStatus('📋 Address copied to clipboard!', 'success');
-        }).catch(err => {
-          console.error('Copy failed:', err);
-          showStatus('❌ Failed to copy address', 'error');
-        });
-      }
-    }
-
-    // Gestionnaire de connexion principal
-    async function handleConnection() {
-      const connectBtn = document.getElementById('connectBtn');
-      const btnText = document.getElementById('btnText');
-      
-      if (currentWallet && currentAddress) {
-        // Déjà connecté, ne rien faire
-        return;
-      }
-      
-      // Désactiver le bouton pendant la connexion
-      connectBtn.disabled = true;
-      btnText.innerHTML = '<span class="loading"></span> Connecting...';
-      
-      const connected = await connectWallet();
-      
-      if (!connected) {
-        // Réactiver le bouton en cas d'échec
+        showStatus(`❌ Failed to connect to Phantom: ${error.message}`, 'error');
+        connectBtn.textContent = 'Connect Phantom Wallet';
+      } finally {
         connectBtn.disabled = false;
-        btnText.textContent = 'Connect Phantom Wallet';
       }
     }
 
-    // Écouter les événements de déconnexion de Phantom
-    function setupWalletListeners() {
-      if (isPhantomInstalled()) {
-        // Essayer d'abord l'API SUI
-        if (window.phantom.sui && window.phantom.sui.on) {
-          const phantom = window.phantom.sui;
-          
-          try {
-            phantom.on('disconnect', () => {
-              console.log('Phantom SUI disconnected');
-              disconnect();
-            });
-            
-            phantom.on('accountChanged', (newAccount) => {
-              console.log('SUI account changed:', newAccount);
-              if (newAccount) {
-                currentAddress = newAccount;
-                document.getElementById('walletAddress').textContent = 
-                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-                getBalance();
-              } else {
-                disconnect();
-              }
-            });
-          } catch (suiListenerError) {
-            console.log('🔧 SUI listeners failed:', suiListenerError);
-          }
-        }
-        
-        // Fallback sur l'API Solana
-        if (window.phantom.solana && window.phantom.solana.on) {
-          const phantom = window.phantom.solana;
-          
-          try {
-            phantom.on('disconnect', () => {
-              console.log('Phantom Solana disconnected');
-              disconnect();
-            });
-            
-            phantom.on('accountChanged', (newAccount) => {
-              console.log('Solana account changed:', newAccount);
-              if (newAccount) {
-                currentAddress = newAccount.toString();
-                document.getElementById('walletAddress').textContent = 
-                  `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}`;
-                getBalance();
-              } else {
-                disconnect();
-              }
-            });
-          } catch (solanaListenerError) {
-            console.log('🔧 Solana listeners failed:', solanaListenerError);
-          }
-        }
+    // Vérification initiale
+    setTimeout(() => {
+      const phantom = detectPhantom();
+      if (phantom.isInstalled) {
+        showStatus(`🎯 Phantom detected via: ${phantom.detectedVia}`, 'success');
+      } else {
+        showStatus(`💡 Phantom not detected. Please install Phantom wallet first.`, 'info');
       }
-    }
+    }, 1000);
 
-    // Initialisation au chargement de la page
-    window.addEventListener('load', async () => {
-      console.log('🚀 Page loaded, initializing...');
-      
-      // Attendre un peu plus longtemps pour que toutes les extensions se chargent
-      setTimeout(async () => {
-        console.log('🔍 Starting Phantom detection...');
-        
-        const phantomAvailable = await isPhantomInstalled();
-        updateUI(false);
-        setupWalletListeners();
-        
-        if (phantomAvailable) {
-          showStatus('👻 Phantom wallet detected! Click to connect.', 'success');
-          console.log('✅ Phantom is ready');
-        } else {
-          showStatus('⚠️ Phantom wallet not found. Please install it.', 'error');
-          console.log('❌ Phantom not available after waiting');
-        }
-      }, 2000); // Attendre 2 secondes au lieu de 1
-    });
-
-    // Gestion des erreurs globales
-    window.addEventListener('error', (event) => {
-      console.error('Global error:', event.error);
-    });
-
-    window.addEventListener('unhandledrejection', (event) => {
-      console.error('Unhandled promise rejection:', event.reason);
+    // Raccourci clavier Enter pour se connecter
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        connectPhantom();
+      }
     });
   </script>
 </body>
