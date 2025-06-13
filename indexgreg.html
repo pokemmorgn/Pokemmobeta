@@ -375,6 +375,43 @@
             mode: null
         };
 
+        // Fonction de validation d'adresse Sui
+        function isValidSuiAddress(address) {
+            if (!address || typeof address !== 'string') {
+                return false;
+            }
+            
+            // Vérifier le format d'adresse Sui
+            const suiAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+            return suiAddressRegex.test(address);
+        }
+
+        // Fonction de validation de connexion sécurisée
+        function validateConnection(address, source) {
+            console.log('🔒 Validation sécuritaire de la connexion...');
+            
+            // 1. Vérifier le format d'adresse
+            if (!isValidSuiAddress(address)) {
+                console.error('❌ Adresse invalide:', address);
+                throw new Error('Format d\'adresse invalide');
+            }
+            
+            // 2. Vérifier la source
+            const validSources = ['publicKey', 'address', 'account', '_accounts', 'requestAccount'];
+            if (source && !validSources.includes(source)) {
+                console.warn('⚠️ Source inconnue:', source);
+            }
+            
+            // 3. Vérifier la cohérence
+            if (address.startsWith('TEMP_') || address.startsWith('DEMO_')) {
+                console.error('❌ Adresse temporaire détectée');
+                throw new Error('Adresse temporaire non autorisée en production');
+            }
+            
+            console.log('✅ Validation réussie pour:', address);
+            return true;
+        }
+
         const connectBtn = document.getElementById('connectBtn');
         const loading = document.getElementById('loading');
         const walletInfo = document.getElementById('walletInfo');
@@ -707,9 +744,16 @@
                     }
                     
                     if (realAddress) {
-                        userAddress = realAddress;
-                        console.log('🎉 Récupération réussie de la vraie adresse Phantom:', userAddress);
-                        return { address: userAddress, mode: 'real_recovery' };
+                        // VALIDATION SÉCURITAIRE
+                        try {
+                            validateConnection(realAddress, 'recovery');
+                            userAddress = realAddress;
+                            console.log('🎉 Récupération réussie de la vraie adresse Phantom:', userAddress);
+                            return { address: userAddress, mode: 'real_recovery' };
+                        } catch (validationError) {
+                            console.error('❌ Validation échouée:', validationError);
+                            throw new Error('Adresse récupérée invalide: ' + validationError.message);
+                        }
                     } else {
                         // Seulement en dernier recours
                         console.warn('⚠️ Impossible de récupérer la vraie adresse, mode temporaire');
