@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       applicationId: ${{ secrets.COLYSEUSGITHUB }}
-      token: ${{ secrets.Njg0Y2IzNDI5ZDMxYlBja2FjcmFEaVFqbFM2MUJtSkU4czZLT2tCbnFnZjZz }}
+      token: ${{ secrets.COLYSEUSGITHUB }}
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js
