@@ -17,4 +17,4 @@ jobs:
           curl -X POST https://api.colyseus.io/deploy \
             -H "Authorization: Bearer $COLYSEUS_API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"projectId": "ton_project_id"}'
+            -d '{"projectId": "1018-pokemmo"}'
