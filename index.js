@@ -1,10 +1,20 @@
-const { listen } = require("@colyseus/tools");
+const http = require("http");
+const express = require("express");
 const { Server } = require("colyseus");
+const { monitor } = require("@colyseus/monitor");
 const { WorldRoom } = require("./rooms/WorldRoom");
 
-const port = Number(process.env.PORT || 2567);
+const app = express();
+const server = http.createServer(app);
+const gameServer = new Server({
+  server,
+});
 
-const gameServer = new Server();
 gameServer.define("world", WorldRoom);
 
-listen(gameServer, { port });
+app.use("/colyseus", monitor());
+
+const PORT = process.env.PORT || 2567;
+server.listen(PORT, () => {
+  console.log(`Listening on http://localhost:${PORT}`);
+});
