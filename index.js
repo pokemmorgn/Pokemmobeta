@@ -9,7 +9,7 @@ const app = express();
 
 // Configure CORS ici, adapte l'origine à ton front
 app.use(cors({
-  origin: ['https://pokemmorgn.github.io', 'http://localhost:3000'], // liste des domaines autorisés
+  origin: ['https://pokemmorgn.github.io/Pokemmo-Client/client/, https://pokemmorgn.github.io', 'http://localhost:3000'], // liste des domaines autorisés
   methods: ['GET', 'POST', 'OPTIONS'],
   credentials: true,
 }));
