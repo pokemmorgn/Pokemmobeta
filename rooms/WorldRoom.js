@@ -1,20 +1,37 @@
-const { Room, Client } = require("colyseus");
+const { Room } = require("colyseus");
+const schema = require("@colyseus/schema");
+const { Schema, type, MapSchema } = schema;
 
-class Player {
+class Player extends Schema {
   constructor(id) {
+    super();
     this.id = id;
     this.x = 100;
     this.y = 100;
     this.name = "Player";
   }
+
+  @type("string") id;
+  @type("number") x;
+  @type("number") y;
+  @type("string") name;
+}
+
+class State extends Schema {
+  constructor() {
+    super();
+    this.players = new MapSchema();
+  }
+
+  @type({ map: Player }) players;
 }
 
 class WorldRoom extends Room {
   onCreate(options) {
-    this.setState({ players: {} });
+    this.setState(new State());
 
     this.onMessage("move", (client, data) => {
-      const player = this.state.players[client.sessionId];
+      const player = this.state.players.get(client.sessionId);
       if (player) {
         player.x = data.x;
         player.y = data.y;
@@ -23,11 +40,12 @@ class WorldRoom extends Room {
   }
 
   onJoin(client) {
-    this.state.players[client.sessionId] = new Player(client.sessionId);
+    const player = new Player(client.sessionId);
+    this.state.players.set(client.sessionId, player);
   }
 
   onLeave(client) {
-    delete this.state.players[client.sessionId];
+    this.state.players.delete(client.sessionId);
   }
 }
 
