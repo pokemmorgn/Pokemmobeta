@@ -1,0 +1,20 @@
+name: Deploy to Colyseus Cloud
+
+on:
+  push:
+    branches:
+      - main  # Remplace par ta branche cible si besoin
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Colyseus Cloud Deployment
+        env:
+          COLYSEUS_API_TOKEN: ${{ secrets.ColyseusGithub }}  # Nom de ton secret GitHub
+        run: |
+          curl -X POST https://api.colyseus.io/deploy \
+            -H "Authorization: Bearer $COLYSEUS_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"projectId": "ton_project_id"}'
