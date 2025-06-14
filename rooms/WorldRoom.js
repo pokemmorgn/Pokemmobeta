@@ -1,4 +1,3 @@
-// test
 const colyseus = require("colyseus");
 const Schema = require("@colyseus/schema").Schema;
 const type = require("@colyseus/schema").type;
